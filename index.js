@@ -248,6 +248,7 @@ const PLAN_VALUE = {
     maxGap: { type: 'number' },
     multiCross: { type: 'boolean' },
     cutPair: { type: 'boolean' },
+    preset: { type: 'string' },
     maxSheets: { type: 'integer' },
     sheets: { type: 'integer' },
     overflow: { type: 'string' },
@@ -325,21 +326,29 @@ function watchTool(deps) {
   return {
     name: 'video_watch',
     description:
-      'Watch a video with sampling driven by on-screen change: one frame per `a` full-screen changes; a dense second becomes a 2x2 / 3x3 / 4x4 ' +
-      'sheet. Default a=0.3 is analysis density, a=1.5 a cheap overview, a=10 a bare timeline. Frames arrive as timestamped contact sheets, ' +
-      'so call video_plan first to see the cost. Not for audio-only transcription, single images, or metadata (size, duration, fps).',
+      'Watch a video in one of two modes. "analysis" samples densely to read animation, camera moves and effects (a=0.3); ' +
+      '"understand" is a cheaper pass for what the video is about (a=1.5). If the user has not said which mode they want, ' +
+      'ask them first - never guess. Frames come back as timestamped contact sheets, one mosaic per dense second. ' +
+      'Not for audio-only transcription, single images, or metadata (size, duration, fps).',
     parameters: {
       type: 'object',
       additionalProperties: false,
       properties: {
         input: { type: 'string', description: 'Path to the video file. Any container ffmpeg can decode.' },
+        preset: {
+          type: 'string',
+          enum: ['analysis', 'understand'],
+          description:
+            'Required. "analysis" for studying animation / camera moves / effects; "understand" for what the video is about. ' +
+            'Ask the user which one when it is not stated; do not pick silently.',
+        },
         from: { type: 'number', description: 'Window start in seconds (default 0).' },
         to: { type: 'number', description: 'Window end in seconds (default: end of file).' },
-        maxSheets: { type: 'integer', description: `Budget as delivery units: the most images to return (default ${cfg.maxSheets}). A mosaic of 4/9/16 cells still counts as ONE image (~384 tokens: 1440p mosaic, 1080p single frame), so this caps cost directly.` },
+        maxSheets: { type: 'integer', description: `Budget as delivery units: the most images to return (default ${cfg.maxSheets}). A mosaic of 4/9/16 cells counts as ONE image (~384 tokens), so this caps cost directly.` },
         overflow: { type: 'string', enum: ['thin', 'stop'], description: `What to do over budget: 'thin' (default) raises the change threshold so the whole video gets sparser; 'stop' keeps the first maxSheets images and skips the rest of the video, reporting how far it covered.` },
-        a: { type: 'number', description: `Change threshold: one frame per this many full-screen changes (default ${cfg.a}). Smaller is denser, e.g. 0.3 for studying cuts, 1.5 for cheap overviews.` },
+        a: { type: 'number', description: 'Change threshold: one frame per this many full-screen changes. analysis=0.3 (dense), understand=1.5 (cheap). Overrides the preset.' },
         t: { type: 'number', description: `Density window in seconds (default ${cfg.t}). Samples inside one window decide the grid: 1 single, 2-4 -> 2x2, 5-9 -> 3x3, 10+ -> 4x4.` },
-        maxGap: { type: 'number', description: `Force a frame whenever this many seconds pass with nothing sampled (default ${cfg.maxGap}, 0 disables).` },
+        maxGap: { type: 'number', description: 'Force a frame whenever this many seconds pass with nothing sampled. analysis=5, understand=8; 0 disables. Overrides the preset.' },
         multiCross: { type: 'boolean', description: `Allow several samples inside a single analysis interval (default ${cfg.multiCross}). Turn it off to cap density at the analysis frame rate.` },
         cutPair: { type: 'boolean', description: `On an instantaneous cut, return the last frame before it and the first after (default ${cfg.cutPair}). Only fires on single-interval jumps, never on gradual transitions.` },
         burn: {
@@ -349,7 +358,7 @@ function watchTool(deps) {
         },
         transcriptFile: { type: 'string', description: 'Optional SRT/VTT/JSON transcript to align with the frames. Without it the embedded subtitle track is used when present.' },
       },
-      required: ['input'],
+      required: ['input', 'preset'],
     },
     output: {
       schema: {
@@ -436,14 +445,20 @@ export function planTool(deps) {
   return {
     name: 'video_plan',
     description:
-      'Show how a video would be sampled, without returning any image: duration, cut count, the density map (which seconds are sampled how often), ' +
-      'how many contact sheets it would take and what they would cost. Costs zero vision tokens, so call it before video_watch when the clip is ' +
-      'long or the budget is unclear. Not for audio-only files, single images, or when the question is just size / duration / fps.',
+      'Show how a video would be sampled, without returning any image: duration, cut count, density map, sheets and cost. Costs zero tokens, ' +
+      'so call it before video_watch when the clip is long. Takes the same two modes: "analysis" or "understand"; ask the user which one ' +
+      'when it is not stated. Not for audio-only files, single images, or questions about size / duration / fps.',
     parameters: {
       type: 'object',
       additionalProperties: false,
       properties: {
         input: { type: 'string', description: 'Path to the video file.' },
+        preset: {
+          type: 'string',
+          enum: ['analysis', 'understand'],
+          description:
+            'Required. "analysis" for animation / camera moves / effects; "understand" for what the video is about. Ask the user; do not guess.',
+        },
         from: { type: 'number', description: 'Window start in seconds (default 0).' },
         to: { type: 'number', description: 'Window end in seconds (default: end of file).' },
         maxSheets: { type: 'integer', description: `Budget as delivery units: the most images (default ${cfg.maxSheets}), ~384 tokens each; a mosaic counts as one image. Over budget, 'thin' thins the whole plan, 'stop' truncates.` },
@@ -454,7 +469,7 @@ export function planTool(deps) {
         multiCross: { type: 'boolean', description: `Allow several samples inside one analysis interval (default ${cfg.multiCross}).` },
         cutPair: { type: 'boolean', description: `Return the frame before and after an instantaneous cut (default ${cfg.cutPair}).` },
       },
-      required: ['input'],
+      required: ['input', 'preset'],
     },
     output: {
       schema: {
@@ -640,6 +655,46 @@ async function ensureScores(params) {
 }
 
 /**
+ * 两套参数预设。**必须由调用方明确选择**，代码不替用户猜。
+ *
+ *   - `analysis`：识别动画、运镜、特效。密度按"看清手法"给（a=0.3），
+ *     硬切可以取前后两帧，预算也留得宽一点。
+ *   - `understand`：只认视频讲了什么。密度按"看懂内容"给（a=1.5），
+ *     每个静止段容忍更长的间隔，不关心切点前后差一帧。
+ *
+ * 判定顺序：**显式单参 > preset > 配置文件**。所以 preset 决定一组默认值，
+ * 想微调仍然可以直接传 `a`、`maxGap` 这些。
+ */
+export const PRESETS = {
+  analysis: { a: 0.3, t: 1, maxGap: 5, multiCross: true, cutPair: false, maxSheets: 5, overflow: 'thin' },
+  understand: { a: 1.5, t: 1, maxGap: 8, multiCross: true, cutPair: false, maxSheets: 5, overflow: 'thin' },
+};
+
+/** 预设名单，供 schema 的 enum 使用。 */
+export const PRESET_NAMES = Object.keys(PRESETS);
+
+/**
+ * 把 preset 与显式参数合成一份生效的采样参数。
+ *
+ * @param args - 工具入参。
+ * @param cfg - 归一化后的配置。
+ * @returns `{ a, t, maxGap, multiCross, cutPair, maxSheets, overflow }`。
+ */
+export function effectiveArgs(args, cfg) {
+  const preset = PRESETS[args?.preset] ?? PRESETS.analysis;
+  const merged = { ...cfg, ...preset };
+  return {
+    a: args?.a ?? merged.a,
+    t: args?.t ?? merged.t,
+    maxGap: args?.maxGap ?? merged.maxGap,
+    multiCross: args?.multiCross ?? merged.multiCross,
+    cutPair: args?.cutPair ?? merged.cutPair,
+    maxSheets: args?.maxSheets ?? merged.maxSheets,
+    overflow: args?.overflow ?? merged.overflow,
+  };
+}
+
+/**
  * 探测 + 扫描 + 算计划，三个工具的公共前半段。
  *
  * @param params - 参数。
@@ -655,13 +710,7 @@ async function analyse(params) {
     duration: probe.duration,
     scanFps: scan.fps,
     area: scan.area,
-    a: args?.a ?? cfg.a,
-    t: args?.t ?? cfg.t,
-    maxGap: args?.maxGap ?? cfg.maxGap,
-    multiCross: args?.multiCross ?? cfg.multiCross,
-    cutPair: args?.cutPair ?? cfg.cutPair,
-    maxSheets: args?.maxSheets ?? cfg.maxSheets,
-    overflow: args?.overflow ?? cfg.overflow,
+    ...effectiveArgs(args, cfg),
     from: args?.from,
     to: args?.to,
   });
@@ -670,7 +719,8 @@ async function analyse(params) {
     groups: plan.groups,
   });
   const estimate = groupCost(groups, aspect);
-  return { probe, scan, plan, density, estimate, groups, aspect };
+  const preset = args?.preset ?? 'analysis';
+  return { probe, scan, plan, density, estimate, groups, aspect, preset };
 }
 
 /**
@@ -683,7 +733,7 @@ async function analyse(params) {
  * @returns 头字段对象。
  */
 export function headOf(params) {
-  const { input, probe, scan, plan, density, estimate } = params;
+  const { input, probe, scan, plan, density, estimate, preset } = params;
   return {
     path: input,
     durationSeconds: round(probe.duration, 3),
@@ -694,6 +744,7 @@ export function headOf(params) {
     subtitleTracks: probe.subtitleTracks.length,
     scan: { fps: round(scan.fps, 3), frames: scan.scores.length, seconds: round(scan.seconds, 2), cached: scan.cached },
     plan: {
+      preset: preset ?? 'analysis',
       count: plan.stats.count,
       moments: plan.stats.moments,
       fillers: plan.stats.fillers,

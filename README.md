@@ -52,13 +52,16 @@
 
 扫描结果按 `路径 + 大小 + 修改时间 + 分析帧率 + 分析尺寸 + 块参数` 缓存到 `~/.dsh/cache/video-understanding/`。
 
-## 两套预设
+## 两种模式（`preset` 必填）
 
-| 用途 | `a` | `maxGap` | `maxSheets` | `overflow` | `cutPair` |
-|---|---|---|---|---|---|
-| 解析 / 复现剪辑与动画手法 | `0.3` | `5` | `8` | `thin` | 开 |
-| 普通视频理解（默认） | `1.5` | `8` | `5` | `thin` | 关 |
-| 极省 | `10` | `15` | `2` | `stop` | 关 |
+调用 **必须** 传 `preset`，代码不替用户猜。模型在用户没说明用哪种时应先问，再调用。
+
+| 模式 | `preset` | `a` | `maxGap` | `maxSheets` | `cutPair` | 适用 |
+|---|---|---|---|---|---|---|
+| **视频解析** | `analysis` | `0.3` | `5` | `5` | `false` | 识别动画、运镜、特效：密度按"看清手法"给 |
+| **视频理解** | `understand` | `1.5` | `8` | `5` | `false` | 只认视频主要内容：容忍更长的静止间隔 |
+
+判定顺序是 **显式单参 > preset > 配置文件**：预设给一整套默认值，想微调仍可直接传 `a`、`maxGap`。解析模式想要"切点前后各一帧"，单独传 `cutPair: true` 即可（当前默认与旧版一致，是关的）。
 
 ## 参数
 
@@ -66,7 +69,8 @@
 
 | 参数 | 默认 | 范围 | 作用 |
 |---|---|---|---|
-| `a` | `0.3` | 0.01–100 | 攒够几个"满屏变化"落一帧。越小越密 |
+| `preset` | 必填 | `analysis` / `understand` | **模式选择**，决定下面一整套默认值（见上表） |
+| `a` | 0.3 / 1.5 | 0.01–100 | 攒够几个"满屏变化"落一帧。解析 0.3、理解 1.5 |
 | `t` | `1` | 0.2–10 | 密度窗口（秒）。窗口内的时刻数决定网格阶数 |
 | `maxGap` | `5` | 0–120 | 超过这么多秒没取帧就强制补一帧；`0` 关闭 |
 | `multiCross` | `true` | 布尔 | 允许一个 0.1 秒间隔里落多个时刻。关掉则密度封顶在分析帧率 |
@@ -136,7 +140,7 @@ dsh plugin --profile web add dsh-video-understanding
   config:
     # ffmpegPath: D:/ffmpeg/bin/ffmpeg.exe      # 也认 DSH_FFMPEG_PATH / FFMPEG_PATH
     # ffprobePath: D:/ffmpeg/bin/ffprobe.exe    # 也认 DSH_FFPROBE_PATH / FFPROBE_PATH
-    a: 0.3                # 攒够几个满屏变化落一帧（解析用 0.3，省 token 用 1.5 以上）
+    # 模式由调用的 preset 决定，配置里不再设 a/maxGap 这类采样参数
     t: 1                  # 密度窗口（秒）
     maxGap: 5             # 强制补帧间隔（秒）
     multiCross: true      # 允许一个分析间隔内多个时刻

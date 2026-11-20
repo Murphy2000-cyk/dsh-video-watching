@@ -173,7 +173,7 @@ async function compareModes(byName, input, label) {
     // 这一组比的是**密度**，所以把交付预算放开（40 张对一个 24 秒片等于不设限）；
     // 预算本身的断言在主流程那一次 watch（maxSheets: 4）里验。
     const watch = await byName.video_watch.execute(
-      { input, maxSheets: 40, ...item.args },
+      { input, preset: 'analysis', maxSheets: 40, ...item.args },
       { signal: undefined },
     );
     rows.push({
@@ -230,12 +230,12 @@ async function main() {
   const byName = Object.fromEntries(buildTools({ ctx, run, cfg }).map((tool) => [tool.name, tool]));
 
   console.log('--- video_plan：全片 ---');
-  const plan = await byName.video_plan.execute({ input: video }, { signal: undefined });
+  const plan = await byName.video_plan.execute({ input: video, preset: 'analysis' }, { signal: undefined });
   const planText = byName.video_plan.output.render({}, plan)[0].text;
   console.log(planText);
   await writeFile(join(OUT, 'plan.txt'), planText, 'utf8');
 
-  const windowOf = (from, to) => byName.video_plan.execute({ input: video, from, to, maxSheets: 8 }, { signal: undefined });
+  const windowOf = (from, to) => byName.video_plan.execute({ input: video, preset: 'analysis', from, to, maxSheets: 8 }, { signal: undefined });
   const stillPlan = await windowOf(0, 7.5);
   const cutPlan = await windowOf(16.5, 23.9);
   const stillRate = stillPlan.plan.count / 7.5;
@@ -251,7 +251,7 @@ async function main() {
   check('变化量按窗口记账', cutPlan.plan.totalChange > stillPlan.plan.totalChange, `${stillPlan.plan.totalChange} -> ${cutPlan.plan.totalChange}`);
 
   console.log('\n--- video_watch ---');
-  const watch = await byName.video_watch.execute({ input: video, maxSheets: 4 }, { signal: undefined });
+  const watch = await byName.video_watch.execute({ input: video, preset: 'analysis', maxSheets: 4 }, { signal: undefined });
   const blocks = byName.video_watch.output.render({}, watch);
   console.log(blocks[0].text);
   await writeFile(join(OUT, 'watch.txt'), blocks[0].text, 'utf8');
@@ -318,7 +318,7 @@ async function main() {
     'utf8',
   );
   const withSubs = await byName.video_watch.execute(
-    { input: video, maxSheets: 2, transcriptFile: srtPath },
+    { input: video, preset: 'analysis', maxSheets: 2, transcriptFile: srtPath },
     { signal: undefined },
   );
   check('字幕被读进来', withSubs.transcript.count === 3, `${withSubs.transcript.count} 条：${withSubs.transcript.source}`);

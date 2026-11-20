@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildTools, expandCommand, resolveConfig } from '../index.js';
+import { buildTools, effectiveArgs, expandCommand, PRESETS, resolveConfig } from '../index.js';
 import { sampleHead } from './fixture.mjs';
 
 const cfg = resolveConfig({});
@@ -147,4 +147,32 @@ test('expandCommand 在元素级别替换，带空格的路径不被拆开', () 
     output: 'C:/tmp/asr.srt',
   });
   assert.deepEqual(argv, ['py', 'run.py', 'C:/素材 a/视频 1.mp4', '--out', 'C:/tmp/asr.srt', '--lang', 'zh']);
+});
+
+
+test('两种预设：解析更密、理解更省，显式参数压过预设', () => {
+  const cfg = resolveConfig({});
+  const analysis = effectiveArgs({ preset: 'analysis' }, cfg);
+  const understand = effectiveArgs({ preset: 'understand' }, cfg);
+  assert.equal(analysis.a, 0.3);
+  assert.equal(understand.a, 1.5);
+  assert.ok(understand.maxGap > analysis.maxGap, '理解模式容忍更长的间隔');
+  assert.equal(analysis.cutPair, false);
+  assert.equal(understand.cutPair, false);
+
+  // 显式传参压过预设
+  const overridden = effectiveArgs({ preset: 'understand', a: 0.3 }, cfg);
+  assert.equal(overridden.a, 0.3);
+  assert.equal(overridden.maxGap, 8, '没传的项仍走预设');
+
+  // 非法 preset 退回解析（不报错，但也绝不该由模型瞎传）
+  assert.equal(effectiveArgs({ preset: 'nonsense' }, cfg).a, PRESETS.analysis.a);
+});
+
+test('preset 是必填参数（模型必须先问用户）', () => {
+  for (const name of ['video_watch', 'video_plan']) {
+    assert.ok(byName[name].parameters.required.includes('preset'), name + ' 应当要求 preset');
+    assert.deepEqual(byName[name].parameters.properties.preset.enum, ['analysis', 'understand']);
+  }
+  assert.equal(byName.video_closeup.parameters.properties.preset, undefined, 'closeup 不需要模式');
 });
