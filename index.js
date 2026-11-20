@@ -110,7 +110,7 @@ export function resolveConfig(config) {
     longSide: clampInt(raw.longSide, 32, 480, 120),
     block: clampInt(raw.block, 2, 16, 4),
     blockThreshold: clampInt(raw.blockThreshold, 1, 64, 8),
-    // 预算按交付单元（图片张数）算：一张图约 233 token，与里面几格无关。
+    // 预算按交付单元（图片张数）算：一张图约 384 token，与里面几格无关。
     maxSheets: clampInt(raw.maxSheets, 1, 200, 5),
     // 超预算时：thin = 全局变稀（默认）；stop = 看到上限就停，后面的内容不看。
     overflow: raw.overflow === 'stop' ? 'stop' : 'thin',

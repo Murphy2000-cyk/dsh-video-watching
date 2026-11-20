@@ -20,8 +20,8 @@
 | 工具 | 干什么 | 视觉 token |
 |---|---|---|
 | `video_plan` | 只扫描不取图：报时长、切点数、密度地图、要几张图、大概多少钱 | **0** |
-| `video_watch` | 按计划交付宫格图 + 时间码清单 + 字幕 | 每张图约 233 |
-| `video_closeup` | 按时间码取回全分辨率单帧 | 约 233 到 384 |
+| `video_watch` | 按计划交付宫格图 + 时间码清单 + 字幕 | 每张图 384（1440p 拼图 / 1080p 单帧） |
+| `video_closeup` | 按时间码取回全分辨率单帧 | 384（原分辨率，单图封顶） |
 
 先 `video_plan` 看计划，再决定要不要 `video_watch`；某格糊得看不清，用 `video_closeup` 对着时间码取原图。
 
@@ -121,6 +121,8 @@ dsh plugin --profile web add dsh-video-understanding
 装完重启 `dsh web`。
 
 `ffprobe` 有就更好（拿结构化元数据最准），**没有也能跑**：缺它的时候探测退回解析 `ffmpeg -i` 打印的元数据。只装过 `pip install imageio-ffmpeg` 的环境就属于"有 ffmpeg、没有 ffprobe"，这条路是特意留的。
+
+扫描缓存默认落在 `~/.dsh/cache/video-understanding/`，可用 `cacheDir` 改到任意绝对路径（目录会自动创建）；缓存按「路径+大小+修改时间+分析帧率+分析尺寸+块参数」失效，改视频或改分析参数都会重算。
 
 找 ffmpeg 的顺序：配置里的 `ffmpegPath` → `DSH_FFMPEG_PATH` / `FFMPEG_PATH` → `~/.dsh/bin/ffmpeg/` → winget 的 Links 目录 → PATH。往 PATH 里加目录要重启宿主才生效，所以插件会先自己看一眼那几个常见位置。
 
