@@ -328,7 +328,7 @@ function watchTool(deps) {
     description:
       'Watch a video in one of two modes. "analysis" samples densely to read animation, camera moves and effects (a=0.3); ' +
       '"understand" is a cheaper pass for what the video is about (a=1.5). If the user has not said which mode they want, ' +
-      'ask them first - never guess. Frames come back as timestamped contact sheets, one mosaic per dense second. ' +
+      'ask them first - never guess. Returns timestamped contact sheets. ' +
       'Not for audio-only transcription, single images, or metadata (size, duration, fps).',
     parameters: {
       type: 'object',
