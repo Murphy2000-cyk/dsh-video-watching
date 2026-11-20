@@ -24,10 +24,10 @@ const OUT = join(ROOT, 'smoke-out');
 const FFMPEG = resolveConfig({}).ffmpegPath;
 
 /**
- * 一个最小可用的 subprocess 服务替身：接口形状按宿主契约来，
+ * 一个最小可用的 subprocess 服务替身：接口形状按 Agent 契约来，
  * 被验证的就是生产代码本身，而不是它的克隆。
  *
- * @param spec - 宿主 spawn 请求。
+ * @param spec - Agent spawn 请求。
  * @returns 句柄。
  */
 function spawnStub(spec) {
@@ -45,7 +45,7 @@ function spawnStub(spec) {
   });
   const done = new Promise((resolve, reject) => {
     child.on('close', (code, signal) => resolve({ exitCode: code, signal }));
-    // 起不来时要 reject，而不是编一个退出码：宿主的真实行为就是 failed 的 done，
+    // 起不来时要 reject，而不是编一个退出码：Agent 的真实行为就是 failed 的 done，
     // 生产代码据此外退到 `ffmpeg -i`，替身必须复现这一点。
     child.on('error', (error) => reject(error));
   });

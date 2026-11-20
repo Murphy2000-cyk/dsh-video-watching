@@ -30,7 +30,7 @@ test('输出 schema 都是 additionalProperties:false 的对象', () => {
 /**
  * 递归检查"值里出现的每个键都在 schema 里声明过"。
  *
- * 宿主就是按这个规则判 INVALID_TOOL_OUTPUT 的：`additionalProperties: false`
+ * Agent 就是按这个规则判 INVALID_TOOL_OUTPUT 的：`additionalProperties: false`
  * 之下多一个键，整次调用失败。这条断言放在单测里，是因为手写样例天然会漏键
  * （`estimate.singles` 就是这么漏出去、到真机上才炸的）。
  *

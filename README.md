@@ -154,7 +154,7 @@ dsh plugin --profile web add dsh-video-understanding
 
 扫描缓存默认落在 `~/.dsh/cache/video-understanding/`，可用 `cacheDir` 改到任意绝对路径（目录会自动创建）；缓存按「路径+大小+修改时间+分析帧率+分析尺寸+块参数」失效，改视频或改分析参数都会重算。
 
-找 ffmpeg 的顺序：配置里的 `ffmpegPath` → `DSH_FFMPEG_PATH` / `FFMPEG_PATH` → `~/.dsh/bin/ffmpeg/` → winget 的 Links 目录 → PATH。往 PATH 里加目录要重启宿主才生效，所以插件会先自己看一眼那几个常见位置。
+找 ffmpeg 的顺序：配置里的 `ffmpegPath` → `DSH_FFMPEG_PATH` / `FFMPEG_PATH` → `~/.dsh/bin/ffmpeg/` → winget 的 Links 目录 → PATH。往 PATH 里加目录要重启 Agent 才生效，所以插件会先自己看一眼那几个常见位置。
 
 ## 配置
 
@@ -207,7 +207,7 @@ config:
     - "{output}"
 ```
 
-理由是字符串要走 shell 才带得动占位符，而路径里的空格、引号、`&` 在 shell 里各有各的坏法。数组由宿主直接交给子进程服务，不经过任何 shell，`{input}` / `{output}` 在**元素级别**替换。两个占位符缺一个，这条配置就不生效。
+理由是字符串要走 shell 才带得动占位符，而路径里的空格、引号、`&` 在 shell 里各有各的坏法。数组由 Agent 直接交给子进程服务，不经过任何 shell，`{input}` / `{output}` 在**元素级别**替换。两个占位符缺一个，这条配置就不生效。
 
 命令失败**不会瞒着**：清单里会写 `transcript: none (transcript command failed: ...)`，而不是装作"本来就没台词"。
 
@@ -229,7 +229,7 @@ config:
 ```bash
 npm test                               # 71 项：纯函数 + 工具契约 + 渲染
 node scripts/smoke.mjs [视频]          # 端到端：造测试片、跑三个工具、比交付形态
-node scripts/verify-host-contract.mjs  # 用宿主自己的校验器验 schema
+node scripts/verify-host-contract.mjs  # 用 Agent 自己的校验器验 schema
 ```
 
 `npm test` 不需要 ffmpeg，也不需要装进 DSH。`smoke.mjs` 需要 ffmpeg；给它一个视频路径就会对那部片子再跑一遍对比。
@@ -243,4 +243,4 @@ node scripts/verify-host-contract.mjs  # 用宿主自己的校验器验 schema
 图标文件有两个，内容必须一致：
 
 - `icon.png` —— 圆角方图（256×256，带透明通道），后续可导出的源文件在 `art/`（原图 `whale-girl.png`、裁切源 `crop-center.png`、512 成品 `icon-512.png`）。
-- `icon.svg` —— **宿主实际读取的文件**。它按 `包根/icon.svg` 的约定找图标，找不到就报 `ENOENT`，所以这个文件必须存在；里面是把 `icon.png` 内嵌成 data URI 的壳。改图之后要重新生成它，不能只换 `icon.png`。
+- `icon.svg` —— **Agent 实际读取的文件**。它按 `包根/icon.svg` 的约定找图标，找不到就报 `ENOENT`，所以这个文件必须存在；里面是把 `icon.png` 内嵌成 data URI 的壳。改图之后要重新生成它，不能只换 `icon.png`。

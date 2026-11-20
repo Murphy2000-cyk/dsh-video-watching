@@ -29,7 +29,7 @@ import { formatClock, formatShort, parseSeconds, parseTranscript, sliceTranscrip
 export const name = 'video-understanding';
 
 /**
- * 依赖的宿主服务。三个都是核心服务，声明它们不会让 fiber 停在 PENDING。
+ * 依赖的 Agent 服务。三个都是核心服务，声明它们不会让 fiber 停在 PENDING。
  */
 export const inject = ['subprocess', 'tools', 'attachments'];
 
@@ -42,7 +42,7 @@ const EXTRACT_CONCURRENCY = 4;
 /**
  * 插件入口。
  *
- * @param ctx - 宿主上下文。
+ * @param ctx - Agent 上下文。
  * @param config - 插件配置，全部可缺省。
  */
 export function apply(ctx, config) {
@@ -63,7 +63,7 @@ export function apply(ctx, config) {
 }
 
 /**
- * 构造三个工具定义（导出是为了让测试在没有宿主的情况下也能拿到同一份契约）。
+ * 构造三个工具定义（导出是为了让测试在没有 Agent 的情况下也能拿到同一份契约）。
  *
  * @param deps - 依赖。
  * @returns 工具定义数组。
@@ -125,7 +125,7 @@ export function resolveConfig(config) {
 /**
  * 解析可执行文件路径：配置 > 环境变量 > 已知位置 > PATH 上的默认名。
  *
- * "已知位置"这一层是 Windows 上的实际需要：往用户 PATH 里加目录要**重启宿主**
+ * "已知位置"这一层是 Windows 上的实际需要：往用户 PATH 里加目录要**重启 Agent**
  * 才生效，而插件装完往往当场就想跑。先看一眼自己的 bin 目录和 winget 的链接目录，
  * 命中就用绝对路径，省掉一次"为什么说找不到 ffmpeg"。
  *
@@ -301,7 +301,7 @@ const HEAD_PROPERTIES = {
   estimate: {
     type: 'object',
     additionalProperties: false,
-    // 三个键必须与 headOf() 返回的 estimate 逐字段对齐：宿主按这个 schema
+    // 三个键必须与 headOf() 返回的 estimate 逐字段对齐：Agent 按这个 schema
     // 校验工具返回值，多一个没声明的键就整次调用失败（INVALID_TOOL_OUTPUT）。
     properties: { sheets: { type: 'integer' }, tokens: { type: 'integer' }, singles: { type: 'integer' } },
     required: ['sheets', 'tokens'],
@@ -720,7 +720,7 @@ async function analyse(params) {
  * 把计划、扫描、探测拼成返回值里那一段共同的头。
  *
  * 导出是为了让契约校验用**真实的**产出而不是手写样例：手写样例漏过一个键，
- * 宿主就在运行时报 `INVALID_TOOL_OUTPUT`（`estimate.singles` 就是这么漏的）。
+ * Agent 就在运行时报 `INVALID_TOOL_OUTPUT`（`estimate.singles` 就是这么漏的）。
  *
  * @param params - 参数。
  * @returns 头字段对象。
@@ -1346,7 +1346,7 @@ function toImageValue(ref) {
  * 只在拿到**明确否定**时拒绝：取不到路由信息的场景（子代理、headless）很常见，
  * 一律拒绝会让工具在那里直接不可用。
  *
- * @param ctx - 宿主上下文。
+ * @param ctx - Agent 上下文。
  * @param exec - 执行上下文。
  */
 async function assertImageCapableRoute(ctx, exec) {

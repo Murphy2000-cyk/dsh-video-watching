@@ -1,7 +1,7 @@
 /**
- * 用宿主**自己的**校验器验一遍三个工具的契约。
+ * 用 Agent**自己的**校验器验一遍三个工具的契约。
  *
- * 单测里的 schema 校验是"我按文档写的"，这份脚本拿的是宿主安装里的真货：
+ * 单测里的 schema 校验是"我按文档写的"，这份脚本拿的是 Agent 安装里的真货：
  * 一个不支持的关键字不是"工具不太好用"，而是 `ctx.tools.register()` 在 apply
  * 期间直接抛错 —— 插件整个装不上，而且报错完全看不出是这个原因。
  *
@@ -93,5 +93,5 @@ if (failures.length > 0) {
   for (const line of failures) console.error(`  - ${line}`);
   process.exitCode = 1;
 } else {
-  console.log(`契约校验通过：${tools.length} 个工具的 parameters 与 output 都被宿主校验器接受，样例值也过校验。`);
+  console.log(`契约校验通过：${tools.length} 个工具的 parameters 与 output 都被 Agent 校验器接受，样例值也过校验。`);
 }
