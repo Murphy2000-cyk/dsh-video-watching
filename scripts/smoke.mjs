@@ -259,15 +259,15 @@ async function main() {
   const images = blocks.filter((block) => block.type === 'image');
   check('交付了图块', images.length === watch.sheets.length, `${watch.sheets.length} 张`);
   check('图数没超预算', watch.sheets.length <= 4, `${watch.sheets.length} 张图`);
-  check('每帧都落在某张图的格子里', watch.frames.every((frame) => frame.sheet >= 1 && frame.sheet <= watch.sheets.length && frame.cell >= 1), 'ok');
+  check('每张子图都落在某张图片的格位里', watch.frames.every((frame) => frame.sheet >= 1 && frame.sheet <= watch.sheets.length && frame.cell >= 1), 'ok');
   const keys = new Set(watch.frames.map((frame) => `${frame.sheet}:${frame.cell}`));
-  check('格号不重复', keys.size === watch.frames.length, `${keys.size}/${watch.frames.length}`);
+  check('子图格位不重复', keys.size === watch.frames.length, `${keys.size}/${watch.frames.length}`);
   check('图片尺寸真实（不是 0×0）', watch.sheets.every((sheet) => sheet.image.width > 0), watch.sheets.map((sheet) => `${sheet.image.width}x${sheet.image.height}`).join(' '));
 
-  // ---- 顺序三层：交付单元之间 / 单元内每张图 / 拼图内每格 ----
+  // ---- 顺序三层：交付单元内子图 / 每张图片内部 / 图片与图片之间 ----
   const times = watch.frames.map((frame) => frame.time);
   check(
-    '交付单元内部：帧按时间单调不减',
+    '交付单元内：子图按时间单调不减',
     times.every((time, index) => index === 0 || time >= times[index - 1] - 1e-9),
     `${times.length} 帧`,
   );
@@ -277,7 +277,7 @@ async function main() {
     perSheet.get(frame.sheet).push(frame);
   }
   check(
-    '每张图内部：格号递增且时间递增',
+    '每张图片内部：子图号递增且时间递增',
     [...perSheet.values()].every(
       (cells) =>
         cells.every((cell, index) => cell.cell === index + 1) &&
@@ -287,7 +287,7 @@ async function main() {
   );
   const firsts = [...perSheet.values()].map((cells) => cells[0].time);
   check(
-    '图与图之间：起始时间递增',
+    '图片与图片之间：起始时间递增',
     firsts.every((time, index) => index === 0 || time >= firsts[index - 1] - 1e-9),
     firsts.map((t) => t.toFixed(2)).join(' < '),
   );

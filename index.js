@@ -105,7 +105,7 @@ export function resolveConfig(config) {
     longSide: clampInt(raw.longSide, 32, 480, 120),
     block: clampInt(raw.block, 2, 16, 4),
     blockThreshold: clampInt(raw.blockThreshold, 1, 64, 8),
-    // 预算按交付单元（图片张数）算：一张图约 384 token，与里面几格无关。
+    // 预算按交付单元里的**图片张数**算：一张图约 384 token，与里面几张子图无关。
     // 超预算时：thin = 全局变稀（默认）；stop = 看到上限就停，后面的内容不看。
 
     quality: clampInt(raw.quality, 2, 31, 3),
@@ -339,7 +339,7 @@ function watchTool(deps) {
         },
         from: { type: 'number', description: 'Window start in seconds (default 0).' },
         to: { type: 'number', description: 'Window end in seconds (default: end of file).' },
-        maxSheets: { type: 'integer', description: `Budget as delivery units: the most images to return (analysis 5 / understand 10). A mosaic of 4/9/16 cells counts as ONE image (~384 tokens), so this caps cost directly.` },
+        maxSheets: { type: 'integer', description: `Delivery unit: at most this many images in one call (analysis 5 / understand 10). A mosaic of 4/9/16 sub-frames counts as ONE image (~384 tokens), so this caps cost directly.` },
         overflow: { type: 'string', enum: ['thin', 'stop'], description: `What to do over budget: 'thin' (default) raises the change threshold so the whole video gets sparser; 'stop' keeps the first maxSheets images and skips the rest of the video, reporting how far it covered.` },
         a: { type: 'number', description: 'Change threshold: one frame per this many full-screen changes. analysis=0.3 (dense), understand=1 (looser). Overrides the preset.' },
         t: { type: 'number', description: `Density window in seconds (analysis 1 / understand 1.5). Samples inside one window decide the grid: 1 single, 2-4 -> 2x2, 5-9 -> 3x3, 10+ -> 4x4.` },
@@ -456,7 +456,7 @@ export function planTool(deps) {
         },
         from: { type: 'number', description: 'Window start in seconds (default 0).' },
         to: { type: 'number', description: 'Window end in seconds (default: end of file).' },
-        maxSheets: { type: 'integer', description: `Budget as delivery units: the most images (analysis 5 / understand 10), ~384 tokens each; a mosaic counts as one image. Over budget, 'thin' thins the whole plan, 'stop' truncates.` },
+        maxSheets: { type: 'integer', description: `Delivery unit: at most this many images in one call (analysis 5 / understand 10), ~384 tokens each; a mosaic counts as one image. Over budget, 'thin' thins the whole plan, 'stop' truncates.` },
         overflow: { type: 'string', enum: ['thin', 'stop'], description: `Over budget: 'thin' (default) thins the whole plan, 'stop' keeps the first maxSheets images and reports the covered range.` },
         a: { type: 'number', description: `Change threshold: one frame per this many full-screen changes (analysis 0.3 / understand 1).` },
         t: { type: 'number', description: `Density window in seconds (analysis 1 / understand 1.5).` },
@@ -816,7 +816,7 @@ async function executeWatch(params) {
 
   const workDir = await mkdtemp(join(tmpdir(), 'dsh-video-understanding-'));
   try {
-    // 每张图装哪些格由 buildGroups 定好：密窗口拼图、切点取前后两帧、单帧装箱
+    // 每张图片装哪些子图由 buildGroups 定好：密窗口拼图、切点取前后两帧、单帧单独一张
     const deliveryGroups = analysis.groups ?? [];
     const sheets = [];
     const placed = [];
@@ -1035,7 +1035,7 @@ async function executeCloseup(params) {
  * ------------------------------------------------------------------ */
 
 /**
- * `video_watch` 的内容块：一段钉死"第几格 = 第几秒"的文本 + N 张图。
+ * `video_watch` 的内容块：一段钉死"第几格 = 第几秒"的文本 + N 张图片。
  *
  * @param value - 工具返回值。
  * @returns 内容块数组。
@@ -1155,7 +1155,7 @@ function normalizeTimes(value) {
 /**
  * 拼"缩放 + 补边 + 烧字"的过滤器链。
  *
- * 补边是必需的：格子必须是统一尺寸，否则 `tile` 会直接失败。
+ * 补边是必需的：子图必须是统一尺寸，否则 `tile` 会直接失败。
  *
  * @param params - 参数。
  * @returns 过滤器字符串。
@@ -1172,7 +1172,7 @@ function buildCellFilter(params) {
 /**
  * 把有空洞的帧序列压成连续文件名。
  *
- * `tile` 按 `%04d.jpg` 从 1 连续读，中间缺一个就会少拼一格并错位。
+ * `tile` 按 `%04d.jpg` 从 1 连续读，中间缺一个就会少一张子图并错位。
  *
  * @param jobs - 已经成功的帧任务。
  * @returns 重排后的任务（含新路径）。
@@ -1410,7 +1410,7 @@ function plural(count, word) {
 /**
  * 密度地图的一行：从几点到几点、多密、几帧。
  *
- * 只有一格的分组不能写"每 X 秒一帧"—— x 会是 0，印出来是 `every 100/s`，
+ * 只有一张子图的分组不能写"每 X 秒一帧"—— x 会是 0，印出来是 `every 100/s`，
  * 既没意义又误导。单格直接写 `single`。
  *
  * @param run - 密度段。
