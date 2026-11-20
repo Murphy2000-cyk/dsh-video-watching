@@ -1,7 +1,7 @@
 /**
  * 测试用的样例值：**由真实代码算出来**，不是手写的一份。
  *
- * 手写样例的最大问题是会漂移：`estimate` 里少写一个 `singles`，单测照样全绿，
+ * 手写样例的最大问题是会漂移：`estimate` 里少写一个键，单测照样全绿，
  * 而 Agent 按 output schema 校验返回值时会直接把整次工具调用判成
  * `INVALID_TOOL_OUTPUT`。所以这里走一遍
  * 合成变化序列 → planFrames → buildGroups → groupCost → headOf 的真实链路。

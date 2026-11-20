@@ -7,7 +7,7 @@
  *
  * 三个工具：
  *   - `video_plan`   只扫描不取图，告诉你这部片子会被怎么切（0 视觉 token）
- *   - `video_watch`  按计划交付宫格图 + 时间码清单 + 字幕
+ *   - `video_watch`  按计划交付拼图 + 时间码清单 + 字幕
  *   - `video_closeup` 按时间码取回全分辨率单帧
  *
  * @module dsh-video-understanding
@@ -301,9 +301,10 @@ const HEAD_PROPERTIES = {
   estimate: {
     type: 'object',
     additionalProperties: false,
-    // 三个键必须与 headOf() 返回的 estimate 逐字段对齐：Agent 按这个 schema
+    // 两个键必须与 headOf() 返回的 estimate 逐字段对齐：Agent 按这个 schema
     // 校验工具返回值，多一个没声明的键就整次调用失败（INVALID_TOOL_OUTPUT）。
-    properties: { sheets: { type: 'integer' }, tokens: { type: 'integer' }, singles: { type: 'integer' } },
+    // 这里刻意不放 `singles`：单帧图片数由 `plan.singles` 给，两个字段指同一件事会被读成两个数。
+    properties: { sheets: { type: 'integer' }, tokens: { type: 'integer' } },
     required: ['sheets', 'tokens'],
   },
 };
@@ -774,7 +775,7 @@ export function headOf(params) {
       count: run.count,
       intervalSeconds: round(run.interval, 3),
     })),
-    estimate: { sheets: estimate.sheets, tokens: estimate.tokens, singles: estimate.singles ?? 0 },
+    estimate: { sheets: estimate.sheets, tokens: estimate.tokens },
   };
 }
 

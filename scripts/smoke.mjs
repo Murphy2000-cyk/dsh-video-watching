@@ -7,7 +7,7 @@
  *   16-24 秒 每秒一次硬切 → 应该最密，且每个切点都落帧
  *
  * 跑法：`node scripts/smoke.mjs`（需要 ffmpeg / ffprobe 在 PATH，或设 DSH_FFMPEG_PATH）
- * 产物：`smoke-out/` 下的宫格图与清单，可以直接打开看。
+ * 产物：`smoke-out/` 下的拼图与清单，可以直接打开看。
  */
 
 import { spawn } from 'node:child_process';
@@ -180,7 +180,7 @@ async function compareModes(byName, input, label) {
       mode: item.name,
       frames: watch.frames.length,
       sheets: watch.sheets.length,
-      singles: watch.estimate.singles ?? 0,
+      singles: watch.plan.singles ?? 0,
       cutPairs: watch.plan.cutPairs ?? 0,
       truncated: watch.plan.truncated,
       tokens: watch.estimate.tokens,

@@ -59,8 +59,9 @@ test('headOf 的每个键都在 output schema 里声明过（防止 INVALID_TOOL
   const head = sampleHead();
   assertDeclared(head, byName.video_plan.output.schema);
   assertDeclared(head, byName.video_watch.output.schema);
-  // 这份头必须真的带着 estimate.singles —— 它曾经漏在 schema 外面，让每次调用都报错。
-  assert.equal(typeof head.estimate.singles, 'number');
+  // estimate 只留 sheets / tokens：单帧图片数由 plan.singles 给，
+  // 两个字段指同一件事，模型会当成两个不同的数。
+  assert.deepEqual(Object.keys(head.estimate).sort(), ['sheets', 'tokens']);
 });
 
 test('renderWatch 把"第几格 = 第几秒"写进正文', () => {
