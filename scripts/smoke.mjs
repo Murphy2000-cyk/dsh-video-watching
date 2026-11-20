@@ -264,6 +264,34 @@ async function main() {
   check('格号不重复', keys.size === watch.frames.length, `${keys.size}/${watch.frames.length}`);
   check('图片尺寸真实（不是 0×0）', watch.sheets.every((sheet) => sheet.image.width > 0), watch.sheets.map((sheet) => `${sheet.image.width}x${sheet.image.height}`).join(' '));
 
+  // ---- 顺序三层：交付单元之间 / 单元内每张图 / 拼图内每格 ----
+  const times = watch.frames.map((frame) => frame.time);
+  check(
+    '交付单元内部：帧按时间单调不减',
+    times.every((time, index) => index === 0 || time >= times[index - 1] - 1e-9),
+    `${times.length} 帧`,
+  );
+  const perSheet = new Map();
+  for (const frame of watch.frames) {
+    if (!perSheet.has(frame.sheet)) perSheet.set(frame.sheet, []);
+    perSheet.get(frame.sheet).push(frame);
+  }
+  check(
+    '每张图内部：格号递增且时间递增',
+    [...perSheet.values()].every(
+      (cells) =>
+        cells.every((cell, index) => cell.cell === index + 1) &&
+        cells.every((cell, index) => index === 0 || cell.time >= cells[index - 1].time - 1e-9),
+    ),
+    'ok',
+  );
+  const firsts = [...perSheet.values()].map((cells) => cells[0].time);
+  check(
+    '图与图之间：起始时间递增',
+    firsts.every((time, index) => index === 0 || time >= firsts[index - 1] - 1e-9),
+    firsts.map((t) => t.toFixed(2)).join(' < '),
+  );
+
   console.log('\n--- video_closeup ---');
   const close = await byName.video_closeup.execute({ input: video, times: [3.5, '00:18'] }, { signal: undefined });
   console.log(byName.video_closeup.output.render({}, close)[0].text);
