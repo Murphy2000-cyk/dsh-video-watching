@@ -65,25 +65,36 @@
 
 ## 参数
 
-全部可以在 profile 配置里给默认值，也可以在单次工具调用里临时覆盖。
+参数分两组：**采样参数只由 `preset` 决定**（可在单次调用里覆盖，配置文件里不设），**其余是配置参数**。
+
+### 采样参数（跟随 preset，调用时可覆盖）
+
+| 参数 | `analysis` | `understand` | 作用 |
+|---|---|---|---|
+| `a` | 0.3 | 1 | 攒够几个"满屏变化"落一帧，越小越密 |
+| `t` | 1 | 1.5 | 密度窗口（秒），窗口内时刻数决定网格阶数 |
+| `maxGap` | 5 | 6 | 超过这么多秒没取帧就强制补一帧；`0` 关闭 |
+| `multiCross` | true | true | 允许一个 0.1 秒间隔里落多个时刻 |
+| `cutPair` | false | false | 硬切取前后两帧（默认关，需要时单次传 true） |
+| `maxSheets` | 5 | 10 | 单次交付的**图片张数**上限，一个拼图也只算一张 |
+
+### 配置参数（写 profile）
 
 | 参数 | 默认 | 范围 | 作用 |
 |---|---|---|---|
-| `preset` | 必填 | `analysis` / `understand` | **模式选择**，决定下面一整套默认值（见上表） |
-| `a` | 0.3 / 1 | 0.01–100 | 攒够几个"满屏变化"落一帧。解析 0.3、理解 1 |
-| `t` | `1` | 0.2–10 | 密度窗口（秒）。窗口内的时刻数决定网格阶数 |
-| `maxGap` | `5` | 0–120 | 超过这么多秒没取帧就强制补一帧；`0` 关闭 |
-| `multiCross` | `true` | 布尔 | 允许一个 0.1 秒间隔里落多个时刻。关掉则密度封顶在分析帧率 |
-| `cutPair` | `false` | 布尔 | 硬切取前后两帧。只对瞬时跳变生效，不碰渐变转场 |
-| `scanFps` | `10` | 1–30 | 分析帧率。只影响变化率的采样密度，不影响出图 |
-| `longSide` | `120` | 32–480 | 分析图长边（像素）。1080p ÷ 16 = 120 |
+| `overflow` | `thin` | `thin/stop` | 超预算时：全片变稀 / 看到上限就停（返回 `truncated` 与 `coveredTo`） |
+| `scanFps` | `10` | 1–30 | 分析帧率，只影响变化率分辨率 |
+| `longSide` | `120` | 32–480 | 分析图长边（1080p ÷ 16） |
 | `block` / `blockThreshold` | `4` / `8` | 2–16 / 1–64 | 面积变化分的方块边长与块级阈值 |
-| `maxSheets` | `5` | 1–200 | 单次交付的**图片张数**上限。一个 4×4 拼图也只算一张 |
-| `overflow` | `thin` | `thin/stop` | 超预算时：`thin` 全片变稀（仍覆盖全片）/ `stop` 看到上限就停，后面的内容不看 |
+| `quality` | `3` | 2–31 | JPEG `-q:v` |
 | `burn` | `time` | `time/index/none` | 烧进格子角标的时间码 / 序号 |
+| `fontFile` | consolab.ttf | 路径 | 烧字字体 |
 | `cacheDir` | `~/.dsh/cache/video-understanding` | 绝对路径 | 扫描结果缓存位置 |
+| `ffmpegPath` / `ffprobePath` | 自动解析 | 路径 | ffmpeg 位置 |
+| `timeoutMs` / `toolTimeoutMs` / `graceMs` | 180000 / 900000 / 2000 | 毫秒 | 超时与终止宽限 |
+| `transcriptCommand` | `[]` | 数组 | 外部转写命令 |
 
-> 已删除的参数：`perSheet`、`sparse`（单帧不再装箱，一帧一张图）、`gridMode`（网格阶数完全由密度决定）、`budgetPixels`（固定 1080p）、`maxWidth`（`video_closeup` 取原分辨率）。
+> 已删除的参数：`perSheet`、`sparse`（单帧不再装箱）、`gridMode`（网格完全由密度决定）、`budgetPixels`（固定画质分档）、`maxWidth`（closeup 取原分辨率）、以及配置里的 `a`/`t`/`maxGap`/`multiCross`/`cutPair`/`maxSheets`（改由 preset 管，避免「写了却不生效」）。
 
 ## 拼图与 token
 
@@ -149,8 +160,6 @@ dsh plugin --profile web add dsh-video-understanding
     longSide: 120         # 分析图长边
     block: 4              # 方块边长
     blockThreshold: 8     # 块级阈值（0~255）
-    maxSheets: 5          # 单次交付的图片张数上限（一个拼图算一张）
-    overflow: thin        # thin 全片变稀 / stop 看到上限就停
     quality: 3            # JPEG -q:v，2 最好 / 31 最差
     burn: time            # time / index / none
     fontFile: C:/Windows/Fonts/consolab.ttf

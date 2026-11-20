@@ -102,18 +102,11 @@ export function resolveConfig(config) {
     ffprobePath: resolveExecutable(raw.ffprobePath, ['DSH_FFPROBE_PATH', 'FFPROBE_PATH'], 'ffprobe', known('ffprobe')),
     scanFps,
     // 积分法：攒够 a 个满屏变化落一帧；每 t 秒数密度定网格
-    a: clampNumber(raw.a, 0.01, 100, 0.3),
-    t: clampNumber(raw.t, 0.2, 10, 1),
-    maxGap: clampNumber(raw.maxGap, 0, 120, 5),
-    multiCross: raw.multiCross !== false,
-    cutPair: raw.cutPair === true,
     longSide: clampInt(raw.longSide, 32, 480, 120),
     block: clampInt(raw.block, 2, 16, 4),
     blockThreshold: clampInt(raw.blockThreshold, 1, 64, 8),
     // 预算按交付单元（图片张数）算：一张图约 384 token，与里面几格无关。
-    maxSheets: clampInt(raw.maxSheets, 1, 200, 5),
     // 超预算时：thin = 全局变稀（默认）；stop = 看到上限就停，后面的内容不看。
-    overflow: raw.overflow === 'stop' ? 'stop' : 'thin',
 
     quality: clampInt(raw.quality, 2, 31, 3),
     burn: ['none', 'index', 'time'].includes(raw.burn) ? raw.burn : 'time',
@@ -123,6 +116,8 @@ export function resolveConfig(config) {
     timeoutMs: clampInt(raw.timeoutMs, 1000, 3600000, 180000),
     toolTimeoutMs: clampInt(raw.toolTimeoutMs, 1000, 3600000, 900000),
     graceMs: clampInt(raw.graceMs, 100, 30000, 2000),
+    // 交付策略：超预算时变稀还是停。属于长期偏好，留在配置里，也可单次覆盖。
+    overflow: raw.overflow === 'stop' ? 'stop' : 'thin',
 
   };
 }
@@ -344,13 +339,13 @@ function watchTool(deps) {
         },
         from: { type: 'number', description: 'Window start in seconds (default 0).' },
         to: { type: 'number', description: 'Window end in seconds (default: end of file).' },
-        maxSheets: { type: 'integer', description: `Budget as delivery units: the most images to return (default ${cfg.maxSheets}). A mosaic of 4/9/16 cells counts as ONE image (~384 tokens), so this caps cost directly.` },
+        maxSheets: { type: 'integer', description: `Budget as delivery units: the most images to return (analysis 5 / understand 10). A mosaic of 4/9/16 cells counts as ONE image (~384 tokens), so this caps cost directly.` },
         overflow: { type: 'string', enum: ['thin', 'stop'], description: `What to do over budget: 'thin' (default) raises the change threshold so the whole video gets sparser; 'stop' keeps the first maxSheets images and skips the rest of the video, reporting how far it covered.` },
         a: { type: 'number', description: 'Change threshold: one frame per this many full-screen changes. analysis=0.3 (dense), understand=1 (looser). Overrides the preset.' },
-        t: { type: 'number', description: `Density window in seconds (default ${cfg.t}). Samples inside one window decide the grid: 1 single, 2-4 -> 2x2, 5-9 -> 3x3, 10+ -> 4x4.` },
+        t: { type: 'number', description: `Density window in seconds (analysis 1 / understand 1.5). Samples inside one window decide the grid: 1 single, 2-4 -> 2x2, 5-9 -> 3x3, 10+ -> 4x4.` },
         maxGap: { type: 'number', description: 'Force a frame whenever this many seconds pass with nothing sampled. analysis=5, understand=6; 0 disables. Overrides the preset.' },
-        multiCross: { type: 'boolean', description: `Allow several samples inside a single analysis interval (default ${cfg.multiCross}). Turn it off to cap density at the analysis frame rate.` },
-        cutPair: { type: 'boolean', description: `On an instantaneous cut, return the last frame before it and the first after (default ${cfg.cutPair}). Only fires on single-interval jumps, never on gradual transitions.` },
+        multiCross: { type: 'boolean', description: `Allow several samples inside a single analysis interval (default true). Turn it off to cap density at the analysis frame rate.` },
+        cutPair: { type: 'boolean', description: `On an instantaneous cut, return the last frame before it and the first after (default false). Only fires on single-interval jumps, never on gradual transitions.` },
         burn: {
           type: 'string',
           enum: ['time', 'index', 'none'],
@@ -463,9 +458,9 @@ export function planTool(deps) {
         to: { type: 'number', description: 'Window end in seconds (default: end of file).' },
         maxSheets: { type: 'integer', description: `Budget as delivery units: the most images (default ${cfg.maxSheets}), ~384 tokens each; a mosaic counts as one image. Over budget, 'thin' thins the whole plan, 'stop' truncates.` },
         overflow: { type: 'string', enum: ['thin', 'stop'], description: `Over budget: 'thin' (default) thins the whole plan, 'stop' keeps the first maxSheets images and reports the covered range.` },
-        a: { type: 'number', description: `Change threshold: one frame per this many full-screen changes (default ${cfg.a}).` },
+        a: { type: 'number', description: `Change threshold: one frame per this many full-screen changes (analysis 0.3 / understand 1).` },
         t: { type: 'number', description: `Density window in seconds (default ${cfg.t}).` },
-        maxGap: { type: 'number', description: `Force a frame when this many seconds pass with nothing sampled (default ${cfg.maxGap}).` },
+        maxGap: { type: 'number', description: `Force a frame when this many seconds pass with nothing sampled (analysis 5 / understand 6).` },
         multiCross: { type: 'boolean', description: `Allow several samples inside one analysis interval (default ${cfg.multiCross}).` },
         cutPair: { type: 'boolean', description: `Return the frame before and after an instantaneous cut (default ${cfg.cutPair}).` },
       },
@@ -662,16 +657,14 @@ async function ensureScores(params) {
  *   - `understand`：只认视频讲了什么。密度按"看懂内容"给（a=1），窗口放宽到 1.5 秒、
  *     静止段容忍 6 秒间隔，交付预算也更大（10 张），不关心切点前后差一帧。
  *
- * 判定顺序：**显式单参 > preset > 配置文件**。所以 preset 决定一组默认值，
- * 想微调仍然可以直接传 `a`、`maxGap` 这些。
+ * 判定顺序：**显式单参 > preset**。采样参数只有这两个来源，配置文件里不再设
+ * a / t / maxGap / maxSheets / overflow 这一组 —— 它们由 preset 唯一决定，
+ * 免得出现「配置写了却没生效」的假象。
  */
 export const PRESETS = {
-  analysis: { a: 0.3, t: 1, maxGap: 5, multiCross: true, cutPair: false, maxSheets: 5, overflow: 'thin' },
-  understand: { a: 1, t: 1.5, maxGap: 6, multiCross: true, cutPair: false, maxSheets: 10, overflow: 'thin' },
+  analysis: { a: 0.3, t: 1, maxGap: 5, multiCross: true, cutPair: false, maxSheets: 5 },
+  understand: { a: 1, t: 1.5, maxGap: 6, multiCross: true, cutPair: false, maxSheets: 10 },
 };
-
-/** 预设名单，供 schema 的 enum 使用。 */
-export const PRESET_NAMES = Object.keys(PRESETS);
 
 /**
  * 把 preset 与显式参数合成一份生效的采样参数。
@@ -680,9 +673,9 @@ export const PRESET_NAMES = Object.keys(PRESETS);
  * @param cfg - 归一化后的配置。
  * @returns `{ a, t, maxGap, multiCross, cutPair, maxSheets, overflow }`。
  */
-export function effectiveArgs(args, cfg) {
+export function effectiveArgs(args, cfg = {}) {
   const preset = PRESETS[args?.preset] ?? PRESETS.analysis;
-  const merged = { ...cfg, ...preset };
+  const merged = { ...preset };
   return {
     a: args?.a ?? merged.a,
     t: args?.t ?? merged.t,
@@ -690,7 +683,7 @@ export function effectiveArgs(args, cfg) {
     multiCross: args?.multiCross ?? merged.multiCross,
     cutPair: args?.cutPair ?? merged.cutPair,
     maxSheets: args?.maxSheets ?? merged.maxSheets,
-    overflow: args?.overflow ?? merged.overflow,
+    overflow: args?.overflow ?? (cfg.overflow === 'stop' ? 'stop' : 'thin'),
   };
 }
 

@@ -225,7 +225,7 @@ async function main() {
   const video = await buildFixture();
   console.log(`测试片：${video}\n`);
 
-  const cfg = resolveConfig({ scanFps: 10, maxSheets: 8, cacheDir: join(OUT, '_cache') });
+  const cfg = resolveConfig({ scanFps: 10, cacheDir: join(OUT, '_cache') });
   const run = createRunner((spec) => spawnStub(spec), { graceMs: 2000, timeoutMs: 180000 });
   const byName = Object.fromEntries(buildTools({ ctx, run, cfg }).map((tool) => [tool.name, tool]));
 

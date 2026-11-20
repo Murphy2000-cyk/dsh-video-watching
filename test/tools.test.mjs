@@ -109,20 +109,16 @@ test('renderCloseup 一帧一图', () => {
 test('配置能整体缺省，也有边界收口', () => {
   const defaults = resolveConfig({});
   assert.equal(defaults.scanFps, 10);
-  assert.equal(defaults.a, 0.3);
-  assert.equal(defaults.t, 1);
-  assert.equal(defaults.maxGap, 5);
-  assert.equal(defaults.multiCross, true);
-  assert.equal(defaults.cutPair, false);
   assert.equal(defaults.longSide, 120);
-  assert.ok(defaults.maxSheets >= 1);
-  const wild = resolveConfig({ scanFps: 999, maxSheets: -5, quality: 99, a: -1, t: 0, maxGap: -3, longSide: 9999 });
+  assert.equal(defaults.block, 4);
+  // 采样参数由 preset 唯一决定，配置里不该再有这些键
+  for (const key of ['a', 't', 'maxGap', 'multiCross', 'cutPair', 'maxSheets']) {
+    assert.equal(defaults[key], undefined, key + ' 不应出现在配置里');
+  }
+  const wild = resolveConfig({ scanFps: 999, quality: 99, longSide: 9999, block: 999 });
   assert.ok(wild.scanFps <= 30);
-  assert.ok(wild.a > 0, 'a 不能是 0 或负数');
-  assert.ok(wild.t >= 0.2);
-  assert.ok(wild.maxGap >= 0);
   assert.ok(wild.longSide <= 480);
-  assert.ok(wild.maxSheets >= 1);
+  assert.ok(wild.block <= 16);
   assert.ok(wild.quality <= 31);
 });
 
