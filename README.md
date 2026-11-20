@@ -226,15 +226,36 @@ config:
 - **单帧不再打包**（0.5.0 起）。一帧一张图，所以长片安静段（每几秒一帧）的图数会比过去多得多，必须靠 `maxSheets` 和 `overflow` 兜住。
 - **分辨率档位固定**：单帧 1080p、拼图 1440p（2×2 单张子图 720p / 3×3 480p / 4×4 360p）。每张图片 384 token，比过去的 800×450（233）贵约 65%，换来 4×4 里子图 640×360 的可读性。
 
+## 代码结构
+
+`index.js` 只留入口（`apply`、`inject`、`name`），并把下面几块的对外符号原样再导出——测试与脚本按 `index.js` 的名字取用，搬文件不动它们的 import。
+
+| 文件 | 装什么 | 约行数 |
+|---|---|---|
+| `index.js` | 插件入口 + re-export | 63 |
+| `lib/config.js` | 配置归一化：夹取、解析外部命令、猜字体、定缓存目录 | 142 |
+| `lib/tools.js` | 三个工具的定义（**模型读到的描述与参数在这里**） | 370 |
+| `lib/orchestrate.js` | 扫描、预设、计划、取帧、拼图、交附件 | 496 |
+| `lib/render.js` | 返回值 → 内容块（纯函数，不碰 IO） | 96 |
+| `lib/util.js` | 执行与渲染共用的小工具 | 311 |
+| `lib/plan.js` | 积分法采样计划（纯算法） | 597 |
+| `lib/scan.js` | raw RGB → 面积变化分 | 254 |
+| `lib/grid.js` | 网格与 token 计量 | 160 |
+| `lib/delivery.js` | 计划分组 → 交付分组、成本 | 65 |
+| `lib/cache.js` | 扫描缓存键与读写 | 80 |
+| `lib/ffmpeg.js` | ffmpeg / ffprobe 命令封装 | 451 |
+| `lib/time.js` | 时间码与字幕解析 | 231 |
+
 ## 开发
 
 ```bash
-npm test                               # 71 项：纯函数 + 工具契约 + 渲染
+npm test                               # 73 项：纯函数 + 工具契约 + 渲染
 node scripts/smoke.mjs [视频]          # 端到端：造测试片、跑三个工具、比交付形态
 node scripts/verify-host-contract.mjs  # 用 Agent 自己的校验器验 schema
+node scripts/verify-real-output.mjs    # 真跑三个工具，拿真实返回值过校验器
 ```
 
-`npm test` 不需要 ffmpeg，也不需要装进 DSH。`smoke.mjs` 需要 ffmpeg；给它一个视频路径就会对那部片子再跑一遍对比。
+`npm test` 不需要 ffmpeg，也不需要装进 DSH。`smoke.mjs` 与 `verify-real-output.mjs` 需要 ffmpeg；给 smoke 一个视频路径就会对那部片子再跑一遍对比。
 
 ## 许可
 
