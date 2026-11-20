@@ -1,0 +1,48 @@
+{
+  "name": "dsh-video-gaze",
+  "version": "0.2.0",
+  "description": "Watch a video the way an editor scrubs: sampling density follows on-screen change, frames are tiled into few images to save tokens, and any single moment can be pulled back at full resolution.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./plan": "./lib/plan.js",
+    "./grid": "./lib/grid.js",
+    "./time": "./lib/time.js",
+    "./scan": "./lib/scan.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "lib/*.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "video",
+    "adaptive-sampling",
+    "contact-sheet",
+    "keyframe",
+    "ffmpeg",
+    "multimodal"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

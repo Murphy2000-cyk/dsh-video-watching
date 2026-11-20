@@ -1,0 +1,4 @@
+node_modules/
+smoke-out/
+_*.txt
+*.log

@@ -1,0 +1,51 @@
+{
+  "name": "dsh-video-understanding",
+  "version": "0.5.0",
+  "description": "Watch a video by accumulated change, one image per delivery unit: a dense second becomes one 2x2/3x3/4x4 sheet (1080p, ~384 tokens), sparse frames get their own 1080p image, and maxSheets caps how many images you pay for.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./plan": "./lib/plan.js",
+    "./grid": "./lib/grid.js",
+    "./time": "./lib/time.js",
+    "./scan": "./lib/scan.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "lib/*.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "icon.png",
+    "art/*.png",
+    "README.md",
+    "使用手册.md"
+  ],
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "video",
+    "adaptive-sampling",
+    "contact-sheet",
+    "keyframe",
+    "ffmpeg",
+    "multimodal"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
