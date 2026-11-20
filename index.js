@@ -326,8 +326,8 @@ function watchTool(deps) {
   return {
     name: 'video_watch',
     description:
-      'Watch a video in one of two modes. "analysis" samples densely to read animation, camera moves and effects (a=0.3); ' +
-      '"understand" is a cheaper pass for what the video is about (a=1.5). If the user has not said which mode they want, ' +
+      'Watch a video in one of two modes. "analysis" samples densely for animation, camera moves and effects (a=0.3); ' +
+      '"understand" is a looser pass for what the video is about (a=1, up to 10 images). If the user has not said which mode they want, ' +
       'ask them first - never guess. Returns timestamped contact sheets. ' +
       'Not for audio-only transcription, single images, or metadata (size, duration, fps).',
     parameters: {
@@ -346,9 +346,9 @@ function watchTool(deps) {
         to: { type: 'number', description: 'Window end in seconds (default: end of file).' },
         maxSheets: { type: 'integer', description: `Budget as delivery units: the most images to return (default ${cfg.maxSheets}). A mosaic of 4/9/16 cells counts as ONE image (~384 tokens), so this caps cost directly.` },
         overflow: { type: 'string', enum: ['thin', 'stop'], description: `What to do over budget: 'thin' (default) raises the change threshold so the whole video gets sparser; 'stop' keeps the first maxSheets images and skips the rest of the video, reporting how far it covered.` },
-        a: { type: 'number', description: 'Change threshold: one frame per this many full-screen changes. analysis=0.3 (dense), understand=1.5 (cheap). Overrides the preset.' },
+        a: { type: 'number', description: 'Change threshold: one frame per this many full-screen changes. analysis=0.3 (dense), understand=1 (looser). Overrides the preset.' },
         t: { type: 'number', description: `Density window in seconds (default ${cfg.t}). Samples inside one window decide the grid: 1 single, 2-4 -> 2x2, 5-9 -> 3x3, 10+ -> 4x4.` },
-        maxGap: { type: 'number', description: 'Force a frame whenever this many seconds pass with nothing sampled. analysis=5, understand=8; 0 disables. Overrides the preset.' },
+        maxGap: { type: 'number', description: 'Force a frame whenever this many seconds pass with nothing sampled. analysis=5, understand=6; 0 disables. Overrides the preset.' },
         multiCross: { type: 'boolean', description: `Allow several samples inside a single analysis interval (default ${cfg.multiCross}). Turn it off to cap density at the analysis frame rate.` },
         cutPair: { type: 'boolean', description: `On an instantaneous cut, return the last frame before it and the first after (default ${cfg.cutPair}). Only fires on single-interval jumps, never on gradual transitions.` },
         burn: {
@@ -659,15 +659,15 @@ async function ensureScores(params) {
  *
  *   - `analysis`：识别动画、运镜、特效。密度按"看清手法"给（a=0.3），
  *     硬切可以取前后两帧，预算也留得宽一点。
- *   - `understand`：只认视频讲了什么。密度按"看懂内容"给（a=1.5），
- *     每个静止段容忍更长的间隔，不关心切点前后差一帧。
+ *   - `understand`：只认视频讲了什么。密度按"看懂内容"给（a=1），窗口放宽到 1.5 秒、
+ *     静止段容忍 6 秒间隔，交付预算也更大（10 张），不关心切点前后差一帧。
  *
  * 判定顺序：**显式单参 > preset > 配置文件**。所以 preset 决定一组默认值，
  * 想微调仍然可以直接传 `a`、`maxGap` 这些。
  */
 export const PRESETS = {
   analysis: { a: 0.3, t: 1, maxGap: 5, multiCross: true, cutPair: false, maxSheets: 5, overflow: 'thin' },
-  understand: { a: 1.5, t: 1, maxGap: 8, multiCross: true, cutPair: false, maxSheets: 5, overflow: 'thin' },
+  understand: { a: 1, t: 1.5, maxGap: 6, multiCross: true, cutPair: false, maxSheets: 10, overflow: 'thin' },
 };
 
 /** 预设名单，供 schema 的 enum 使用。 */

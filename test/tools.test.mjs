@@ -155,7 +155,10 @@ test('两种预设：解析更密、理解更省，显式参数压过预设', ()
   const analysis = effectiveArgs({ preset: 'analysis' }, cfg);
   const understand = effectiveArgs({ preset: 'understand' }, cfg);
   assert.equal(analysis.a, 0.3);
-  assert.equal(understand.a, 1.5);
+  assert.equal(understand.a, 1);
+  assert.equal(understand.t, 1.5);
+  assert.equal(understand.maxGap, 6);
+  assert.equal(understand.maxSheets, 10);
   assert.ok(understand.maxGap > analysis.maxGap, '理解模式容忍更长的间隔');
   assert.equal(analysis.cutPair, false);
   assert.equal(understand.cutPair, false);
@@ -163,7 +166,7 @@ test('两种预设：解析更密、理解更省，显式参数压过预设', ()
   // 显式传参压过预设
   const overridden = effectiveArgs({ preset: 'understand', a: 0.3 }, cfg);
   assert.equal(overridden.a, 0.3);
-  assert.equal(overridden.maxGap, 8, '没传的项仍走预设');
+  assert.equal(overridden.maxGap, 6, '没传的项仍走预设');
 
   // 非法 preset 退回解析（不报错，但也绝不该由模型瞎传）
   assert.equal(effectiveArgs({ preset: 'nonsense' }, cfg).a, PRESETS.analysis.a);
