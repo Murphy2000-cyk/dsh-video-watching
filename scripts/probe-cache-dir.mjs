@@ -10,7 +10,7 @@ import { stat, writeFile } from 'node:fs/promises';
 import { buildTools, resolveConfig } from '../index.js';
 import { createRunner } from '../lib/ffmpeg.js';
 
-const CACHE = 'F:/Agent/DeepseekHarness/Data-of-skill-plugin/agent-data/cache/video-understanding';
+const CACHE = 'F:/Agent/DeepseekHarness/Data-of-skill-plugin/agent-data/cache/video-watching';
 const VIDEO = process.argv[2] ?? 'F:/Agent/DeepseekHarness/Interaction/20261104_litsearch_v220_视频/literature-search_2.2.0_介绍.mp4';
 
 function spawnStub(spec) {

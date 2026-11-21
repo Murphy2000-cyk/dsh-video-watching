@@ -1,5 +1,5 @@
 /**
- * dsh-video-understanding —— 先扫全片，再按画面变化决定取帧密度。
+ * dsh-video-watching —— 先扫全片，再按画面变化决定取帧密度。
  *
  * 它和已有视频插件的分野只有一句话：**采样间隔随画面变化**。
  * 静止的地方拉长到几秒一帧，快剪的地方压到一秒三帧，切点上强制落一帧；
@@ -20,14 +20,14 @@
  * 这个文件只留入口，并把上面几块的对外符号原样再导出：测试与脚本按
  * `index.js` 的名字取用，搬文件不该动它们的 import。
  *
- * @module dsh-video-understanding
+ * @module dsh-video-watching
  */
 
 import { createRunner } from './lib/ffmpeg.js';
 import { resolveConfig } from './lib/config.js';
 import { buildTools } from './lib/tools.js';
 
-export const name = 'video-understanding';
+export const name = 'video-watching';
 
 /**
  * 依赖的 Agent 服务。三个都是核心服务，声明它们不会让 fiber 停在 PENDING。

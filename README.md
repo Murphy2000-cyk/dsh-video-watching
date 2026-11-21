@@ -1,4 +1,4 @@
-# dsh-video-understanding
+# dsh-video-watching
 
 让 DSH 按**画面累计变化量**决定看多密：变化攒够了才取一帧，一秒攒够几次就把它们拼进同一张图片。
 
@@ -67,7 +67,7 @@
    一整个 2×2/3×3/4×4 拼图只算**一张**图片，因为一张图约 384 token，跟里面几张子图无关 ——
    所以"多少帧画面"不决定钱，"多少张图片"才决定。抬阈值而不是砍尾巴，因为"抽稀"要全局一致。
 
-扫描结果按 `路径 + 大小 + 修改时间 + 分析帧率 + 分析尺寸 + 块参数` 缓存到 `~/.dsh/cache/video-understanding/`。
+扫描结果按 `路径 + 大小 + 修改时间 + 分析帧率 + 分析尺寸 + 块参数` 缓存到 `~/.dsh/cache/video-watching/`。
 
 ## 两种模式（`preset` 必填，且每次看视频都要问）
 
@@ -120,7 +120,7 @@
 | `quality` | `3` | 2–31 | JPEG 压缩质量 `-q:v`，越小越清晰；与「分辨率档位」是两件事 |
 | `burn` | `time` | `time/index/none` | 烧进子图角标的时间码 / 序号 |
 | `fontFile` | consolab.ttf | 路径 | 烧字字体 |
-| `cacheDir` | `~/.dsh/cache/video-understanding` | 绝对路径 | 扫描结果缓存位置 |
+| `cacheDir` | `~/.dsh/cache/video-watching` | 绝对路径 | 扫描结果缓存位置 |
 | `ffmpegPath` / `ffprobePath` | 自动解析 | 路径 | ffmpeg 位置 |
 | `timeoutMs` / `toolTimeoutMs` / `graceMs` | 180000 / 900000 / 2000 | 毫秒 | 超时与终止宽限 |
 | `transcriptCommand` | `[]` | 数组 | 外部转写命令 |
@@ -206,7 +206,7 @@
 | 烧时间码 | 带 `drawtext` 的 ffmpeg + 存在的字体文件 | 自动关掉烧字，清单里会说明 |
 
 ```bash
-dsh plugin --profile web add dsh-video-understanding
+dsh plugin --profile web add dsh-video-watching
 ```
 
 装完**重启 `dsh web`**。不重启的话工具列表里看不到新参数，老会话会一直用启动时加载的那份 schema。
@@ -243,8 +243,8 @@ dsh plugin --profile web add dsh-video-understanding
 写在 profile 的 `cordis.patch.yml` 里。下面这份是**照抄就能跑**的最小配置，其余都注释着备查：
 
 ```yaml
-- id: video-understanding
-  name: dsh-video-understanding
+- id: video-watching
+  name: dsh-video-watching
   config:
     overflow: stop          # 超预算时：stop = 看到上限就停；不写则 thin = 全片变稀
     # 采样密度由调用的 preset 决定，配置里不设 a / t / maxGap / maxSheets
@@ -257,7 +257,7 @@ dsh plugin --profile web add dsh-video-understanding
     # quality: 3              # JPEG -q:v，2 最好 / 31 最差
     # burn: time              # time / index / none
     # fontFile: C:/Windows/Fonts/consolab.ttf   # 非 Windows 上没有该文件，会自动关掉烧字
-    # cacheDir: F:/Data/video-understanding     # 默认 ~/.dsh/cache/video-understanding
+    # cacheDir: F:/Data/video-watching     # 默认 ~/.dsh/cache/video-watching
     # cacheMaxEntries: 200    # 缓存最多留几个文件，超了按最久没写过的淘汰
     # speechMode: auto        # off / auto：本地语音识别
     # speechModelDir: ~/.dsh/speech-to-text/sensevoice/models/sensevoice-onnx
@@ -270,7 +270,7 @@ dsh plugin --profile web add dsh-video-understanding
     # transcriptCommand: ["D:/asr/.venv/Scripts/python.exe", "D:/asr/run.py", "{input}", "--out", "{output}"]
 ```
 
-扫描缓存默认落在 `~/.dsh/cache/video-understanding/`，可用 `cacheDir` 改到任意绝对路径（目录会自动创建）；缓存按「路径+大小+修改时间+分析帧率+分析尺寸+块参数」失效，改视频或改分析参数都会重算。
+扫描缓存默认落在 `~/.dsh/cache/video-watching/`，可用 `cacheDir` 改到任意绝对路径（目录会自动创建）；缓存按「路径+大小+修改时间+分析帧率+分析尺寸+块参数」失效，改视频或改分析参数都会重算。
 
 烧字需要这份 ffmpeg 带 `drawtext`（Gyan 等完整构建有，`imageio_ffmpeg` 那种精简构建没有）。探不到就自动关掉烧字，并在清单里如实说明。
 

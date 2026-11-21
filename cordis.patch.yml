@@ -1,4 +1,4 @@
 - insert:
-    - id: video-understanding
-      name: dsh-video-understanding
+    - id: video-watching
+      name: dsh-video-watching
       config: {}
