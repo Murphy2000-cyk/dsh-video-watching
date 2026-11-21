@@ -105,6 +105,8 @@ test('appendBatch 写清这一批的时间、图片组成、语音、BGM，并�
     assert.match(text, /### BGM/);
     assert.match(text, /电子 \/ 快 \/ 欢快 — 动感/);
     assert.match(text, /找相似曲目的检索词：电子舞曲/);
+    // 分析位的标题要点明三段结构，否则模型只会写一段概括
+    assert.match(text, /### 本批记录 · 观看情况 \/ 详细 \/ 总结/);
     assert.match(text, /<!-- 待补分析 0123456789abcdef 批次 1 -->/);
   } finally {
     await rm(dir, { recursive: true, force: true });

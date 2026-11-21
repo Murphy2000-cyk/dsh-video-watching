@@ -1,6 +1,6 @@
 {
   "name": "dsh-video-watching",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Plan first, pay once: video_plan checks whether maxTotalSheets covers the whole clip and hands out a planId, video_watch only executes that approved plan, and every batch is written into a markdown viewing record on disk. Sampling follows accumulated change, one image per delivery unit (1080p / ~384 tokens).",
   "type": "module",
   "main": "./index.js",

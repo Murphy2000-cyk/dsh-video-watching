@@ -264,6 +264,18 @@ test('video_note 是纯本地记录：必填四项，输出只有落盘信息', 
   assert.match(blocks[0].text, /batch="2"/);
 });
 
+test('video_note 的提示词给的是"可复现"标准和三段结构，不是主题清单', () => {
+  const note = byName.video_note;
+  const full = `${note.description}\n${note.parameters.properties.note.description}`;
+  // 标准：没看过的人只看文字也能重剪一遍
+  assert.match(full, /REPRODUCE/);
+  assert.match(full, /never seen the video/);
+  // 三段：观看情况 → 详细 → 总结
+  assert.match(full, /观看情况/);
+  assert.match(full, /总结/);
+  assert.match(full, /whole video/);
+});
+
 test('观看记录默认开、默认写桌面，也可以整体关掉', () => {
   const defaults = resolveConfig({});
   assert.equal(defaults.record, true);
