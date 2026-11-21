@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { cacheKey, readCache, writeCache } from '../lib/cache.js';
+import { cacheKey, pruneCache, readCache, writeCache } from '../lib/cache.js';
 
 const BASE = { input: 'C:/media/a.mp4', size: 1234, mtimeMs: 1700000000000, scanFps: 10, width: 120, height: 68, block: 4, threshold: 8 };
 
@@ -50,6 +50,31 @@ test('没有 area 的旧缓存不会被当成命中', async () => {
     const { writeFile } = await import('node:fs/promises');
     await writeFile(join(dir, `${key}.json`), JSON.stringify({ v: 2, scores: [0, 1, 2], scanFps: 10 }), 'utf8');
     assert.equal(await readCache(dir, key), null, '只有 scores 没有 area 的老格式必须重算');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('缓存条数超过上限时按最久没写过的淘汰，不会无限堆', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-vu-cache3-'));
+  try {
+    // 写 5 个，按写入顺序记下键名（readdir 的顺序不可靠，不能拿它当时间序）
+    const keys = [];
+    for (let index = 0; index < 5; index += 1) {
+      const key = cacheKey({ ...BASE, size: 1000 + index });
+      keys.push(`${key}.json`);
+      await writeCache(dir, key, { area: [index], scores: [0], luma: [0], scanFps: 10, duration: 0.1 });
+      // 拉开 mtime，保证淘汰顺序可判定
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    const removed = await pruneCache(dir, 3);
+    const after = (await (await import('node:fs/promises')).readdir(dir)).filter((name) => name.endsWith('.json'));
+    assert.equal(removed.length, 2, '应当淘汰 2 个');
+    assert.equal(after.length, 3, '剩 3 个');
+    // 留下的是最后写的三个
+    assert.deepEqual(after.sort(), keys.slice(2).sort(), '留下的应当是最新的三个');
+    assert.deepEqual(removed.sort(), keys.slice(0, 2).sort(), '被淘汰的是最早的两个');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

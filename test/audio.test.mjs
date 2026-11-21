@@ -48,7 +48,7 @@ test('规范化：枚举外的取值收敛到"其他"，none 时清空风格相�
     music: 'light',
     style: '轻音乐',
     tempo: '缓慢',
-    mood: '治愈',
+    musicMood: '治愈',
     instruments: ['钢琴', '钢琴', ' '],
     characteristics: '  单音钢琴  ',
     searchWords: ['钢琴', '温暖', '钢琴'],
@@ -57,7 +57,7 @@ test('规范化：枚举外的取值收敛到"其他"，none 时清空风格相�
   assert.equal(light.music, 'light');
   assert.equal(light.style, '其他');
   assert.equal(light.tempo, '慢');   // '缓慢' 里含 '慢'，按子串收敛
-  assert.equal(light.mood, '其他');
+  assert.equal(light.musicMood, '其他');
   assert.deepEqual(light.instruments, ['钢琴']);
   assert.equal(light.characteristics, '单音钢琴');
   assert.deepEqual(light.searchWords, ['钢琴', '温暖']);
@@ -70,14 +70,14 @@ test('规范化：枚举外的取值收敛到"其他"，none 时清空风格相�
 
 test('聚合：相邻片枚举不同才算变化点，并给出"从第几秒起"', () => {
   const chunks = [
-    { from: 0, to: 30, music: 'light', style: '钢琴', tempo: '慢', mood: '温暖', instruments: ['钢琴'], characteristics: '稀疏', searchWords: ['钢琴', '温暖'], sfx: [] },
-    { from: 30, to: 60, music: 'light', style: '钢琴', tempo: '慢', mood: '温暖', instruments: ['钢琴'], characteristics: '继续', searchWords: ['钢琴'], sfx: [] },
-    { from: 60, to: 90, music: 'prominent', style: '电子', tempo: '快', mood: '紧张', instruments: ['合成器鼓机'], characteristics: '加入鼓点', searchWords: ['电子'], sfx: ['重击声'] },
+    { from: 0, to: 30, music: 'light', style: '钢琴', tempo: '慢', musicMood: '温暖', instruments: ['钢琴'], characteristics: '稀疏', searchWords: ['钢琴', '温暖'], sfx: [] },
+    { from: 30, to: 60, music: 'light', style: '钢琴', tempo: '慢', musicMood: '温暖', instruments: ['钢琴'], characteristics: '继续', searchWords: ['钢琴'], sfx: [] },
+    { from: 60, to: 90, music: 'prominent', style: '电子', tempo: '快', musicMood: '紧张', instruments: ['合成器鼓机'], characteristics: '加入鼓点', searchWords: ['电子'], sfx: ['重击声'] },
   ];
   const result = aggregateBgm(chunks);
   assert.equal(result.style, '钢琴');
   assert.equal(result.tempo, '慢');
-  assert.equal(result.mood, '温暖');
+  assert.equal(result.musicMood, '温暖');
   assert.equal(result.changes.length, 1);
   assert.equal(result.changes[0].at, 60);
   assert.equal(result.changes[0].from, '钢琴/慢');
@@ -88,7 +88,7 @@ test('聚合：相邻片枚举不同才算变化点，并给出"从第几秒起"
 
 test('聚合：全片无音乐时不报风格', () => {
   const result = aggregateBgm([
-    { from: 0, to: 30, music: 'none', style: '', tempo: '', mood: '', instruments: [], characteristics: '', searchWords: [], sfx: [] },
+    { from: 0, to: 30, music: 'none', style: '', tempo: '', musicMood: '', instruments: [], characteristics: '', searchWords: [], sfx: [] },
   ]);
   assert.equal(result.music, 'none');
   assert.equal(result.style, '');
@@ -117,8 +117,8 @@ test('拼句：没有句末标点也要收尾，不能丢尾巴', () => {
 });
 
 test('聚合：多数片没音乐时整体判为 none，且不采纳无音乐片的检索词', () => {
-  const none = (from) => ({ from, to: from + 30, music: 'none', style: '', tempo: '', mood: '', instruments: [], characteristics: '无背景音乐', searchWords: ['纯人声', '无BGM'], sfx: [] });
-  const music = { from: 210, to: 240, music: 'light', style: '氛围', tempo: '慢', mood: '冷静', instruments: ['合成器'], characteristics: '长音铺垫', searchWords: ['ambient', 'calm'], sfx: [] };
+  const none = (from) => ({ from, to: from + 30, music: 'none', style: '', tempo: '', musicMood: '', instruments: [], characteristics: '无背景音乐', searchWords: ['纯人声', '无BGM'], sfx: [] });
+  const music = { from: 210, to: 240, music: 'light', style: '氛围', tempo: '慢', musicMood: '冷静', instruments: ['合成器'], characteristics: '长音铺垫', searchWords: ['ambient', 'calm'], sfx: [] };
   const result = aggregateBgm([none(0), none(30), none(60), none(90), none(120), none(150), none(180), music]);
   assert.equal(result.music, 'none');
   assert.equal(result.style, '氛围');

@@ -110,14 +110,15 @@
 | `ffmpegPath` / `ffprobePath` | 自动解析 | 路径 | ffmpeg 位置 |
 | `timeoutMs` / `toolTimeoutMs` / `graceMs` | 180000 / 900000 / 2000 | 毫秒 | 超时与终止宽限 |
 | `transcriptCommand` | `[]` | 数组 | 外部转写命令 |
-| `speechMode` | `auto` | auto/on/off | 本地语音识别开关 |
+| `speechMode` | `auto` | off/auto | 本地语音识别开关：auto = 有依赖就做、没有就如实报不可用 |
 | `speechModelDir` | `~/.dsh/speech-to-text/sensevoice/models/sensevoice-onnx` | 路径 | SenseVoice ONNX 模型目录 |
 | `sherpaPath` | 空 | 路径 | 借用已有的 `sherpa-onnx-node`（空则按包名找） |
-| `bgmMode` | `auto` | auto/on/off | BGM / 音效分析开关 |
+| `bgmMode` | `auto` | off/auto | BGM / 音效分析开关：off = 不上传音频 |
 | `bgmModel` | `qwen3.8-omni-flash` | 模型名 | 云端模型 |
 | `bgmKeyEnv` | `DASHSCOPE_AUDIO_API_KEY` | 变量名 | 密钥从哪个环境变量读 |
 | `bgmChunkSeconds` | `30` | 5–120 | 片长，等于 BGM 变化点的时间精度 |
 | `bgmMaxChunks` | `24` | 1–200 | 片数上限，超了均匀抽样并标注 `sampled` |
+| `cacheMaxEntries` | `200` | 10–100000 | 扫描缓存最多留几个文件，超了按最久没写过的淘汰 |
 
 
 > 已删除的参数：`perSheet`、`sparse`（单帧不再装箱）、`gridMode`（网格完全由密度决定）、`budgetPixels`（固定分辨率档位）、`maxWidth`（closeup 取原分辨率）、以及配置里的 `a`/`t`/`maxGap`/`multiCross`/`cutPair`/`maxSheets`（改由 preset 管，避免「写了却不生效」）。
@@ -232,7 +233,11 @@ config:
 | **语音** | 本地 sherpa-onnx + SenseVoice int8（CPU，0 显存） | 逐句文本 + 词级时间戳 | 0 |
 | **BGM / 音效** | 云端 `qwen3.8-omni-flash` | 风格 / 速度 / 情绪 / 乐器 / 听感 / 检索词 | 约 ¥0.5 每小时音频 |
 
+三个词先说清楚：**语音**（说的话）、**BGM**（背景音乐）、**音效**（非音乐的突发声）。
+
 BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**相邻片枚举比对**出来的，不问模型。
+
+`musicMood` 指的是**音乐的情绪**（温暖/紧张/宏大…），不是说话人的情绪；说话人的情绪不输出。
 
 **密钥只从环境变量读**（默认 `DASHSCOPE_AUDIO_API_KEY`），插件代码、配置、仓库里都没有密钥。
 

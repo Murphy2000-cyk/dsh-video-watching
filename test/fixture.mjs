@@ -92,15 +92,15 @@ export function sampleAudio() {
       music: 'light',
       style: '钢琴',
       tempo: '慢',
-      mood: '温暖',
+      musicMood: '温暖',
       instruments: ['钢琴'],
       characteristics: '单音钢琴，稀疏，留白多',
       searchWords: ['钢琴', '温暖', '稀疏'],
       changes: [{ at: 60, from: '钢琴/慢', to: '电子/快' }],
       sfx: ['重击声'],
       segments: [
-        { from: 0, to: 30, music: 'light', style: '钢琴', tempo: '慢', mood: '温暖', characteristics: '稀疏' },
-        { from: 30, to: 60, music: 'light', style: '钢琴', tempo: '慢', mood: '温暖', characteristics: '继续' },
+        { from: 0, to: 30, music: 'light', style: '钢琴', tempo: '慢', musicMood: '温暖', characteristics: '稀疏' },
+        { from: 30, to: 60, music: 'light', style: '钢琴', tempo: '慢', musicMood: '温暖', characteristics: '继续' },
       ],
     },
   };
