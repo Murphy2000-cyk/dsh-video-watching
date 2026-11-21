@@ -159,12 +159,12 @@ async function verify(toolName, args) {
   return value;
 }
 
-const plan = await verify('video_plan', { input: video, preset: 'understand', userConfirmed: true });
+const plan = await verify('video_plan', { input: video, mode: 'understand', userConfirmed: true });
 let planId = plan?.planId;
 let committedPlan = plan;
 if (plan !== null && typeof planId !== 'string') {
   // 预算不够时 plan 只给选项；这里走"截断"这条定稿路径，顺带验它。
-  committedPlan = await verify('video_plan', { input: video, preset: 'understand', userConfirmed: true, choice: { id: 'truncate' } });
+  committedPlan = await verify('video_plan', { input: video, mode: 'understand', userConfirmed: true, choice: { id: 'truncate' } });
   planId = committedPlan?.planId;
   check('预算不够时 choice=truncate 能定稿', typeof planId === 'string');
 }

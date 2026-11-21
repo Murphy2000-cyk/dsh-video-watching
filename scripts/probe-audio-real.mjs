@@ -75,11 +75,11 @@ const planTool = tools.find((tool) => tool.name === 'video_plan');
 const watch = tools.find((tool) => tool.name === 'video_watch');
 
 // 先定稿，再拿 planId 执行（预算不够就按截断定稿，探针只关心音频那条线）。
-const planned = await planTool.execute({ input: VIDEO, preset: 'understand', userConfirmed: true }, { signal: undefined });
+const planned = await planTool.execute({ input: VIDEO, mode: 'understand', userConfirmed: true }, { signal: undefined });
 let planId = planned.planId;
 if (typeof planId !== 'string') {
   const committed = await planTool.execute(
-    { input: VIDEO, preset: 'understand', userConfirmed: true, choice: { id: 'truncate' } },
+    { input: VIDEO, mode: 'understand', userConfirmed: true, choice: { id: 'truncate' } },
     { signal: undefined },
   );
   planId = committed.planId;

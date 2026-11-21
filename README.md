@@ -32,14 +32,14 @@
 
 | 名词 | 指什么 |
 |---|---|
-| **交付单元** | 一次 `video_watch` 交付回来的整批图。`maxSheets` 是这个单元里**图片张数**的上限，`estimate.sheets` 是实际张数。 |
+| **批次** | 一次 `video_watch` 交付回来的整批图。`maxSheets` 是每批**图片张数**的上限，`estimate.sheets` 是实际张数。 |
 | **图片** | 喂给模型的一次视觉输入，一张图。里面可能只有一幅画面，也可能是一组拼图。每张 384 token。 |
 | **拼图** | 由 `k×k` 幅画面按网格拼成的一张图片（2×2 / 3×3 / 4×4，硬切是 2×1）。 |
 | **子图** | 拼进同一张图里、与其它幅尺寸相同的一幅画面。4×4 里就有 16 张子图。 |
 
 这里的「画面」就是视频在某一时刻的一幅图，四个层级之外的最底层概念。
 
-顺序是：交付单元 ⊃ 图片（= 单幅画面的单帧图 或 一组拼图）⊃ 子图。
+顺序是：批次 ⊃ 图片（= 单幅画面的单帧图 或 一组拼图）⊃ 子图。
 
 **`maxSheets` 数的是图片，不是子图**：一个 4×4 拼图占 1 张图片，里面 16 张子图不另算钱。
 
@@ -74,7 +74,7 @@
 
 **第一道在 plan 之前**：`video_plan` 要求 `userConfirmed: true`，否则直接报错、**不扫描、不出图、不花钱**。因为"走解析还是走理解"是插件干活之前的第一个决定，不该等到取图那一步再定。
 
-**第二道也在 plan 里**：plan 会按当前档位、按预设密度，算出**完整看完这段窗口需要多少张图**（`required`），和配置里的 `maxTotalSheets` 比。不够时它**不给 `planId`**，只给四条路，每条都带数字：
+**第二道也在 plan 里**：plan 会按当前档位、按该模式的密度，算出**完整看完这段窗口需要多少张图**（`required`），和配置里的 `maxTotalSheets` 比。不够时它**不给 `planId`**，只给四条路，每条都带数字：
 
 ```
 <budget required="128" minimum="96" max="100" feasible="false" .../>
@@ -94,11 +94,11 @@
 
 **采样口径不在工具参数里。** `a` `t` `maxGap` `multiCross` `cutPair` `maxSheets`
 这六个值模型传不进来：schema 里没有这些字段，传了会被 Agent 拒。它们只有两个来源：
-预设（默认值）和 profile 配置（覆盖）。**模型只能选模式，不能改口径。**
+模式（自带默认值）和 profile 配置（覆盖）。**模型只能选模式，不能改口径。**
 
-`preset` 在 plan 时必填，代码不替用户猜：
+`mode` 在 plan 时必填，代码不替用户猜：
 
-| 模式 | `preset` | `a` | `maxGap` | `maxSheets`（每批） | 适用 |
+| 模式 | `mode` | `a` | `maxGap` | `maxSheets`（每批） | 适用 |
 |---|---|---|---|---|---|
 | **视频解析** | `analysis` | `0.3` | `5` | `10` | 识别动画、运镜、特效：密度按"看清手法"给 |
 | **视频理解** | `understand` | `1` | `6` | `20` | 只认视频主要内容：窗口放宽到 1.5 秒，容忍更长间隔 |
@@ -107,13 +107,13 @@
 
 ## 参数
 
-三层：**工具参数**（模型每次可传）、**采样参数**（跟随预设，配置可覆盖）、**其余配置**（写 profile）。
+三层：**工具参数**（模型每次可传）、**采样参数**（跟随模式，配置可覆盖）、**其余配置**（写 profile）。
 
 ### 工具参数
 
 | 工具 | 参数 | 必填 | 说明 |
 |---|---|---|---|
-| `video_plan` | `input` `preset` `userConfirmed` | ✅ | 模式由用户定 |
+| `video_plan` | `input` `mode` `userConfirmed` | ✅ | 模式由用户定 |
 | | `from` `to` | | 只看这一段（判够不够也按这段算） |
 | | `choice` | | 用户选完方案后回填：`{id, budget?, a?, t?}`，`id` ∈ raise / truncate / understand / density |
 | `video_watch` | `input` `planId` | ✅ | `planId` 由 plan 返回，没有就报错 |
@@ -121,7 +121,7 @@
 | `video_note` | `input` `planId` `batch` `note` | ✅ | 这一批的分析（Markdown），写进观看记录 |
 | `video_closeup` | `input` `times` | ✅ | 时间码，`12.5` 或 `"01:30"` |
 
-### 采样参数（跟随 preset，配置可覆盖，模型传不进）
+### 采样参数（跟随 mode，配置可覆盖，模型传不进）
 
 | 参数 | `analysis` | `understand` | 作用 |
 |---|---|---|---|
@@ -161,9 +161,9 @@
 | `cacheMaxEntries` | `200` | 10–100000 | 扫描缓存最多留几个文件，超了按最久没写过的淘汰 |
 
 
-> 采样口径的六个键（`a`/`t`/`maxGap`/`multiCross`/`cutPair`/`maxSheets`）在配置里是**可选覆盖**：不写（`null`）就跟随预设，写了就以配置为准。工具参数里没有它们，所以模型改不了。
+> 采样口径的六个键（`a`/`t`/`maxGap`/`multiCross`/`cutPair`/`maxSheets`）在配置里是**可选覆盖**：不写（`null`）就跟随模式，写了就以配置为准。工具参数里没有它们，所以模型改不了。
 
-## 分批交付（一个视频切成很多交付单元）
+## 分批交付（一个视频切成很多批次）
 
 长片不是一次全给你，而是**按时间顺序切成若干批**，一批一批交付，你逐批总结：
 
@@ -305,7 +305,7 @@ dsh plugin --profile web add dsh-video-watching
   name: dsh-video-watching
   config:
     overflow: stop          # 超预算时：stop = 看到上限就停；不写则 thin = 全片变稀
-    # 采样密度由调用的 preset 决定，配置里不设 a / t / maxGap / maxSheets
+    # 采样密度由调用的 mode 决定，配置里不设 a / t / maxGap / maxSheets
     # ffmpegPath: D:/ffmpeg/bin/ffmpeg.exe      # 也认 DSH_FFMPEG_PATH / FFMPEG_PATH
     # ffprobePath: D:/ffmpeg/bin/ffprobe.exe
     # scanFps: 10             # 分析帧率（1–30）
@@ -411,12 +411,12 @@ BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**
 | 文件 | 装什么 | 约行数 |
 |---|---|---|
 | `index.js` | 插件入口 + re-export | 70 |
-| `lib/presets.js` | 两套预设 + `effectiveArgs`（预设与配置的合成） | 58 |
+| `lib/modes.js` | 两套模式 + `effectiveArgs`（模式与配置的合成） | 59 |
 | `lib/config.js` | 配置归一化：夹取、解析外部命令、猜字体、定缓存与记录目录 | 212 |
-| `lib/tools.js` | 四个工具的定义（**模型读到的描述与参数在这里**） | 602 |
-| `lib/orchestrate.js` | 探测、扫描、plan 初判/定稿、watch 执行、note 落盘、取帧拼图交附件 | 763 |
+| `lib/tools.js` | 四个工具的定义（**模型读到的描述与参数在这里**） | 604 |
+| `lib/orchestrate.js` | 探测、扫描、plan 初判/定稿、watch 执行、note 落盘、取帧拼图交附件 | 765 |
 | `lib/feasibility.js` | 预算检查：`required` / `minimum` / 四个候选方案 / choice 解析 | 238 |
-| `lib/plans.js` | 计划快照：id 哈希、落盘、校验、淘汰 | 204 |
+| `lib/plans.js` | 计划快照：id 哈希、落盘、校验、淘汰 | 205 |
 | `lib/record.js` | 观看记录：文档头、批次追加、分析补写（Markdown） | 259 |
 | `lib/render.js` | 返回值 → 内容块（纯函数，不碰 IO） | 293 |
 | `lib/util.js` | 执行与渲染共用的小工具 | 312 |

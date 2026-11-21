@@ -290,7 +290,7 @@ test('densityMap 覆盖所有格子并遵守段数上限', () => {
   assert.ok(densityMap(plan.groups, { maxRuns: 2 }).length <= 2);
 });
 
-test('planFeasibility 用预设密度判"够不够"：能变稀塞进去也算不够', () => {
+test('planFeasibility 用模式密度判"够不够"：能变稀塞进去也算不够', () => {
   const area = flat(60, 0.6);
   const base = { duration: 60, scanFps: FPS, area, a: 0.3, t: 1, maxGap: 5 };
   const roomy = planFeasibility({ ...base, maxTotalSheets: 500 });

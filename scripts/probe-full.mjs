@@ -1,7 +1,7 @@
-﻿/**
+/**
  * 完整跑一遍四个工具，把交付物落到本地，供人工/模型看图写总结。
  *
- * 用法：node scripts/probe-full.mjs <视频> <输出目录> [preset] [maxSheets]
+ * 用法：node scripts/probe-full.mjs <视频> <输出目录> [mode] [maxSheets]
  */
 
 import { spawn } from 'node:child_process';
@@ -13,7 +13,7 @@ import { createRunner } from '../lib/ffmpeg.js';
 
 const VIDEO = process.argv[2];
 const OUT = process.argv[3];
-const PRESET = process.argv[4] ?? 'analysis';
+const MODE = process.argv[4] ?? 'analysis';
 const MAX_SHEETS = Number(process.argv[5] ?? 12);
 const DSH_SHERPA = 'C:/Users/lenovo/AppData/Roaming/npm/node_modules/@deepseek-ai/dsh/node_modules/sherpa-onnx-node';
 
@@ -83,7 +83,7 @@ const say = (text) => lines.push(text);
 
 // ---- 1. video_plan ----
 let started = Date.now();
-const plan = await byName.video_plan.execute({ input: VIDEO, preset: PRESET, userConfirmed: true }, { signal: undefined });
+const plan = await byName.video_plan.execute({ input: VIDEO, mode: MODE, userConfirmed: true }, { signal: undefined });
 say(`=== video_plan（${((Date.now() - started) / 1000).toFixed(1)} s）===`);
 say(byName.video_plan.output.render({}, plan)[0].text);
 
@@ -91,7 +91,7 @@ say(byName.video_plan.output.render({}, plan)[0].text);
 let planId = plan.planId;
 if (typeof planId !== 'string') {
   const committed = await byName.video_plan.execute(
-    { input: VIDEO, preset: PRESET, userConfirmed: true, choice: { id: 'truncate' } },
+    { input: VIDEO, mode: MODE, userConfirmed: true, choice: { id: 'truncate' } },
     { signal: undefined },
   );
   planId = committed.planId;

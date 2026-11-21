@@ -41,7 +41,7 @@ const lines = [];
 // 检查 1：plan 没带 userConfirmed，一步都不该走。
 let started = Date.now();
 try {
-  await planTool.execute({ input: VIDEO, preset: 'analysis' }, { signal: undefined });
+  await planTool.execute({ input: VIDEO, mode: 'analysis' }, { signal: undefined });
   lines.push('FAIL：plan 没带 userConfirmed 也被执行了，模式选择没生效');
 } catch (error) {
   lines.push(`PASS：plan 缺 userConfirmed 被拒绝（${Date.now() - started} ms）`);
@@ -58,11 +58,11 @@ try {
 }
 
 // 放行路径：先定稿（预算不够时按截断），再执行。
-const planned = await planTool.execute({ input: VIDEO, preset: 'understand', userConfirmed: true }, { signal: undefined });
+const planned = await planTool.execute({ input: VIDEO, mode: 'understand', userConfirmed: true }, { signal: undefined });
 let planId = planned.planId;
 if (typeof planId !== 'string') {
   const committed = await planTool.execute(
-    { input: VIDEO, preset: 'understand', userConfirmed: true, choice: { id: 'truncate' } },
+    { input: VIDEO, mode: 'understand', userConfirmed: true, choice: { id: 'truncate' } },
     { signal: undefined },
   );
   planId = committed.planId;

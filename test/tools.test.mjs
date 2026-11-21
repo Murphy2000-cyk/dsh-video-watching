@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildTools, effectiveArgs, expandCommand, PRESETS, resolveConfig } from '../index.js';
+import { buildTools, effectiveArgs, expandCommand, MODES, resolveConfig } from '../index.js';
 import { sampleHead } from './fixture.mjs';
 
 const cfg = resolveConfig({});
@@ -105,12 +105,12 @@ test('截断写进正文：模型不会把 batchDone=true 读成"整片看完了
   assert.doesNotMatch(byName.video_plan.output.render({}, head)[0].text, /<coverage/);
 });
 
-test('密度被调过时写进正文：说清是预算压的，不是预设的密度', () => {
+test('密度被调过时写进正文：说清是预算压的，不是模式自带的密度', () => {
   const head = sampleHead();
   const thinned = { ...head, plan: { ...head.plan, thinned: true, aEff: 2.4, scale: 8, sheets: 9 } };
   const text = byName.video_plan.output.render({}, thinned)[0].text;
   assert.match(text, /<density-changed thinned="true"/);
-  assert.match(text, /sparser than the preset/);
+  assert.match(text, /sparser than the mode/);
   assert.doesNotMatch(byName.video_plan.output.render({}, head)[0].text, /<density-changed/);
 });
 
@@ -173,9 +173,9 @@ test('配置能整体缺省，也有边界收口', () => {
   assert.equal(defaults.scanFps, 10);
   assert.equal(defaults.longSide, 120);
   assert.equal(defaults.block, 4);
-  // 采样口径允许在配置里覆盖，但默认必须是 null（= 跟随预设），不能被静默写死
+  // 采样口径允许在配置里覆盖，但默认必须是 null（= 跟随模式），不能被静默写死
   for (const key of ['a', 't', 'maxGap', 'multiCross', 'cutPair', 'maxSheets']) {
-    assert.equal(defaults[key], null, key + ' 默认应为 null（跟随预设）');
+    assert.equal(defaults[key], null, key + ' 默认应为 null（跟随模式）');
   }
   const wild = resolveConfig({ scanFps: 999, quality: 99, longSide: 9999, block: 999 });
   assert.ok(wild.scanFps <= 30);
@@ -208,10 +208,10 @@ test('expandCommand 在元素级别替换，带空格的路径不被拆开', () 
 });
 
 
-test('两种预设：解析更密、理解更省，显式参数压过预设', () => {
+test('两种模式：解析更密、理解更省，显式参数压过模式', () => {
   const cfg = resolveConfig({});
-  const analysis = effectiveArgs({ preset: 'analysis' }, cfg);
-  const understand = effectiveArgs({ preset: 'understand' }, cfg);
+  const analysis = effectiveArgs({ mode: 'analysis' }, cfg);
+  const understand = effectiveArgs({ mode: 'understand' }, cfg);
   assert.equal(analysis.a, 0.3);
   assert.equal(understand.a, 1);
   assert.equal(understand.t, 1.5);
@@ -222,30 +222,30 @@ test('两种预设：解析更密、理解更省，显式参数压过预设', ()
   assert.equal(analysis.cutPair, false);
   assert.equal(understand.cutPair, false);
 
-  // 配置能覆盖预设（用户改配置 = 用户改参数）
-  const configured = effectiveArgs({ preset: 'understand' }, { ...cfg, a: 0.3, maxSheets: 4 });
-  assert.equal(configured.a, 0.3, '配置里的 a 覆盖预设');
-  assert.equal(configured.maxSheets, 4, '配置里的 maxSheets 覆盖预设');
-  assert.equal(configured.maxGap, 6, '配置没写的仍走预设');
+  // 配置能覆盖模式（用户改配置 = 用户改参数）
+  const configured = effectiveArgs({ mode: 'understand' }, { ...cfg, a: 0.3, maxSheets: 4 });
+  assert.equal(configured.a, 0.3, '配置里的 a 覆盖模式');
+  assert.equal(configured.maxSheets, 4, '配置里的 maxSheets 覆盖模式');
+  assert.equal(configured.maxGap, 6, '配置没写的仍走模式');
 
   // 工具参数不再能覆盖采样口径（模型没有这个口子）
-  const viaArgs = effectiveArgs({ preset: 'understand', a: 0.05, maxSheets: 99, maxGap: 0 }, cfg);
+  const viaArgs = effectiveArgs({ mode: 'understand', a: 0.05, maxSheets: 99, maxGap: 0 }, cfg);
   assert.equal(viaArgs.a, 1, 'args 里的 a 被忽略');
   assert.equal(viaArgs.maxSheets, 20, 'args 里的 maxSheets 被忽略');
   assert.equal(viaArgs.maxGap, 6, 'args 里的 maxGap 被忽略');
 
-  // 非法 preset 退回解析（不报错，但也绝不该由模型瞎传）
-  assert.equal(effectiveArgs({ preset: 'nonsense' }, cfg).a, PRESETS.analysis.a);
+  // 非法 mode 退回解析（不报错，但也绝不该由模型瞎传）
+  assert.equal(effectiveArgs({ mode: 'nonsense' }, cfg).a, MODES.analysis.a);
 });
 
-test('preset 只在 plan 上是必填（模式在 plan 那一步定），watch 要的是 planId', () => {
-  assert.ok(byName.video_plan.parameters.required.includes('preset'), 'plan 应当要求 preset');
+test('mode 只在 plan 上是必填（模式在 plan 那一步定），watch 要的是 planId', () => {
+  assert.ok(byName.video_plan.parameters.required.includes('mode'), 'plan 应当要求 mode');
   assert.ok(byName.video_plan.parameters.required.includes('userConfirmed'), 'plan 应当要求 userConfirmed');
-  assert.deepEqual(byName.video_plan.parameters.properties.preset.enum, ['analysis', 'understand']);
+  assert.deepEqual(byName.video_plan.parameters.properties.mode.enum, ['analysis', 'understand']);
   assert.ok(byName.video_watch.parameters.required.includes('planId'), 'watch 必须带 planId');
-  assert.equal(byName.video_watch.parameters.properties.preset, undefined, 'watch 不再决定模式');
+  assert.equal(byName.video_watch.parameters.properties.mode, undefined, 'watch 不再决定模式');
   assert.equal(byName.video_watch.parameters.properties.userConfirmed, undefined, '确认发生在 plan 那一步');
-  assert.equal(byName.video_closeup.parameters.properties.preset, undefined, 'closeup 不需要模式');
+  assert.equal(byName.video_closeup.parameters.properties.mode, undefined, 'closeup 不需要模式');
 });
 
 test('video_note 是纯本地记录：必填四项，输出只有落盘信息', () => {

@@ -1,6 +1,6 @@
 # 看视频插件 · 架构与运行流程
 
-> 插件 id：`video-watching`　包名：`dsh-video-watching`　入口：`index.js`　版本：0.7.0
+> 插件 id：`video-watching`　包名：`dsh-video-watching`　入口：`index.js`　版本：0.8.0
 > 本文描述**当前实现**。凡写"现在"的地方都与代码一致。
 
 ---
@@ -35,10 +35,10 @@
 | 层 | 定义位置 | 谁能改 | 模型可见 |
 |---|---|---|---|
 | 工具参数 | `lib/tools.js` 的 schema | 模型每次调用可传 | 是 |
-| 预设 | `lib/presets.js` 的 `PRESETS` | 只由改代码 | 否 |
+| 模式 | `lib/modes.js` 的 `MODES` | 只由改代码 | 否 |
 | 配置 | profile 的 `cordis.patch.yml` | 只有用户 | 否 |
 
-**优先级只有两级：配置（写了就生效）> 预设（默认值）。中间没有"工具参数"这一层。**
+**优先级只有两级：配置（写了就生效）> 模式（自带默认值）。中间没有"工具参数"这一层。**
 
 采样口径（`a`、`t`、`maxGap`、`multiCross`、`cutPair`、`maxSheets`）**不在工具参数里**：模型传不进来，传了会被 Agent 的 schema 校验拒掉。这是刻意的，理由见第八节。
 
@@ -46,7 +46,7 @@
 
 | 工具 | 参数 | 必填 |
 |---|---|---|
-| `video_plan` | `input` `preset` `userConfirmed` + `from` `to` + `choice{id,budget?,a?,t?}` | `input` `preset` `userConfirmed` |
+| `video_plan` | `input` `mode` `userConfirmed` + `from` `to` + `choice{id,budget?,a?,t?}` | `input` `mode` `userConfirmed` |
 | `video_watch` | `input` `planId` + `batch` `burn` `transcriptFile` | `input` `planId` |
 | `video_note` | `input` `planId` `batch` `note` | 全部必填 |
 | `video_closeup` | `input` `times` `burn` | `input` `times` |
@@ -54,7 +54,7 @@
 `userConfirmed` 是**模式选择开关**：不是 `true` 就直接抛错，不扫描、不出图、不花钱。
 `planId` 是**预算凭据**：没有它 watch 直接抛错，因为没人事先论证过"这段看完要几张图"。
 
-### 3.2 预设
+### 3.2 模式
 
 | 参数 | `analysis` | `understand` | 含义 |
 |---|---|---|---|
@@ -77,7 +77,7 @@
 | 观看记录 | `record`(true) `recordDir`(~/Desktop) |
 | 超时 | `timeoutMs`(180000) `toolTimeoutMs`(900000) `graceMs`(2000) |
 | 预算 | `maxTotalSheets`(100) `overflow`(stop，只决定 plan 的推荐项) |
-| 采样覆盖 | `a` `t` `maxGap` `multiCross` `cutPair` `maxSheets`（默认 `null` = 跟随预设） |
+| 采样覆盖 | `a` `t` `maxGap` `multiCross` `cutPair` `maxSheets`（默认 `null` = 跟随模式） |
 | 语音 | `speechMode`(auto) `speechModelDir` `sherpaPath` |
 | BGM | `bgmMode`(auto) `bgmModel` `bgmKeyEnv` `bgmChunkSeconds`(30) `bgmMaxChunks`(24) |
 
@@ -86,12 +86,12 @@
 | 文件 | 行数 | 职责 |
 |---|---|---|
 | `index.js` | 70 | 入口：`apply` / `inject` / 再导出 |
-| `lib/presets.js` | 58 | 两套预设与 `effectiveArgs` |
+| `lib/modes.js` | 59 | 两套模式与 `effectiveArgs` |
 | `lib/config.js` | 212 | 配置归一化、路径与默认值 |
-| `lib/tools.js` | 602 | 四个工具的定义（schema 与执行体） |
-| `lib/orchestrate.js` | 763 | 探测→扫描→初判/定稿→取帧→拼图→音视频→记录→组装 |
+| `lib/tools.js` | 604 | 四个工具的定义（schema 与执行体） |
+| `lib/orchestrate.js` | 765 | 探测→扫描→初判/定稿→取帧→拼图→音视频→记录→组装 |
 | `lib/feasibility.js` | 238 | 预算检查：`required`/`minimum`/四选项/`choice` 解析 |
-| `lib/plans.js` | 204 | 计划快照：哈希、落盘、校验、淘汰 |
+| `lib/plans.js` | 205 | 计划快照：哈希、落盘、校验、淘汰 |
 | `lib/record.js` | 259 | 观看记录：文档头、批次追加、分析补写 |
 | `lib/plan.js` | 736 | 积分法采样、补帧、分窗、预算、`planFeasibility`、`fitDensity` |
 | `lib/scan.js` | 255 | 全片扫描，产出逐帧变化曲线 |
@@ -104,14 +104,14 @@
 | `lib/util.js` | 312 | 字幕读取、时间码、并发、杂项 |
 | `lib/time.js` | 232 | 时间码解析与切片 |
 
-依赖方向是单向的：`index → orchestrate → {feasibility, plan, scan, grid, delivery, audio, ffmpeg, util} → plans/presets → time/cache`。
+依赖方向是单向的：`index → orchestrate → {feasibility, plan, scan, grid, delivery, audio, ffmpeg, util} → plans/modes → time/cache`。
 
 ## 五、主流程
 
 ### 5.1 `video_plan` 初判（预算够不够）
 
 ```
-① 模式选择 → ② 探测 → ③ 扫描（缓存优先）→ ④ 按预设密度算 required
+① 模式选择 → ② 探测 → ③ 扫描（缓存优先）→ ④ 按模式密度算 required
        → ⑤ 算补帧下限 minimum → ⑥ required ≤ maxTotalSheets ?
 ```
 
@@ -120,7 +120,7 @@
 | ① 模式选择 | `executePlan` | `userConfirmed !== true` 直接抛错（没问过用户就不开工） |
 | ② 探测 | `ffmpeg.js probeVideo` | 时长/分辨率/帧率/音轨/字幕轨；无 ffprobe 时退 `ffmpeg -i` |
 | ③ 扫描 | `scan.js` + `cache.js` | 10 fps 抽帧 → 缩到 120 px → 4×4 块 → 逐块亮度差；键含路径/大小/mtime/全部扫描口径 |
-| ④ required | `plan.js planFrames` | 不设上限跑一遍 = "预设密度铺满整段要几张" |
+| ④ required | `plan.js planFrames` | 不设上限跑一遍 = "该模式密度铺满整段要几张" |
 | ⑤ minimum | 同上 | `a→∞` 只剩 maxGap 补帧时的张数，即物理下限 |
 | ⑥ 判定 | `feasibility.js` | `required ≤ max` 为够 |
 
@@ -173,10 +173,10 @@ choice → 解析采样与 limit → 重算计划 → 校验进预算 → 落快
 ### 6.1 快照（`plans/<id>.json`）
 
 ```
-input size mtimeMs duration from to preset
+input size mtimeMs duration from to mode
 a t maxGap multiCross cutPair maxSheets
 scanFps longSide block blockThreshold
-mode limit sheets coveredTo createdAt
+resolution limit sheets coveredTo createdAt
 ```
 
 `id = sha1(字段按固定顺序拼接).slice(0,16)`；内容与 id 不自洽的快照一律不认。
@@ -184,7 +184,7 @@ mode limit sheets coveredTo createdAt
 ### 6.2 预算块（`value.budget`）
 
 ```
-required   按预设密度铺满整段要几张
+required   按模式密度铺满整段要几张
 minimum    保 maxGap 的物理下限
 max        配置里的 maxTotalSheets
 feasible   required ≤ max
@@ -261,9 +261,16 @@ index total size sheets from to next batchDone videoComplete
 3. **费用不可控**。`a` 从 0.3 改成 0.05 会让图数涨十倍，而用户看不见这个动作。
 4. **预算尤其不能由执行段决定**。"不够就变稀"会把"没看全"伪装成"看完了"。
 
-现在唯一的改动路径是配置、预设，或 plan 阶段由用户签字的一次性 `choice`。
+现在唯一的改动路径是配置、模式，或 plan 阶段由用户签字的一次性 `choice`。
 
 ## 九、已修与待修
+
+### 已修（0.8.0）
+
+- **`preset` 改名为 `mode`**（不兼容）：工具参数、快照字段、输出里的 `plan.mode` 一并改；同时把预算处置方式从 `mode` 改名为 `resolution`（`full`/`raise`/`truncate`/`understand`/`density`），一个名字只留一个含义。快照版本升到 2，旧快照自动失效。
+- **旧 `presets` 模块改名为 `lib/modes.js`**：`PRESETS` → `MODES`，`presetOf` → `modeOf`。
+- **「交付单元」统一叫「批次」**（一条记录里一个概念只留一个名字）。
+- 顺手删掉一个只有 BOM 的空文件 `lib/index.js`。
 
 ### 已修（0.7.0）
 

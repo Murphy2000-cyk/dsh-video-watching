@@ -1,4 +1,4 @@
-﻿/**
+/**
  * dsh-video-watching —— 先扫全片，再按画面变化决定取帧密度。
  *
  * 它和已有视频插件的分野只有一句话：**采样间隔随画面变化**。
@@ -13,7 +13,7 @@
  *
  * 代码分几块，各自一个文件：
  *   - `lib/config.js`       配置归一化
- *   - `lib/presets.js`      两套预设与 effectiveArgs
+ *   - `lib/modes.js`        两套模式与 effectiveArgs
  *   - `lib/tools.js`        四个工具的定义（模型读到的描述与参数在这里）
  *   - `lib/feasibility.js`  预算检查：required / minimum / 四个候选方案
  *   - `lib/plans.js`        计划快照：哈希、落盘、校验
@@ -64,6 +64,6 @@ export function apply(ctx, config) {
 
 export { expandCommand, resolveConfig } from './lib/config.js';
 export { buildTools, closeupTool, noteTool, planTool } from './lib/tools.js';
-export { PRESETS, effectiveArgs, executeNote, headOf } from './lib/orchestrate.js';
+export { MODES, effectiveArgs, executeNote, headOf } from './lib/orchestrate.js';
 export { appendBatch, analysisMarker, ensureHeader, recordPathOf, writeAnalysis } from './lib/record.js';
 export { renderCloseup, renderNote, renderPlan, renderWatch } from './lib/render.js';

@@ -50,7 +50,7 @@ test('ensureHeader 写文档头：规格、计划、预算都在', async () => {
       probe,
       plan: { stats },
       planId: PLAN_ID,
-      snapshot: { preset: 'analysis', a: 0.3, t: 1, maxSheets: 10 },
+      snapshot: { mode: 'analysis', a: 0.3, t: 1, maxSheets: 10 },
     });
     assert.equal(path, recordPathOf(cfgOf(dir), 'C:/media/video.mp4'));
     assert.match(path, /video\.观看记录\.md$/);
@@ -76,7 +76,7 @@ test('appendBatch 写清这一批的时间、图片组成、语音、BGM，并�
       probe,
       plan: { stats },
       planId: PLAN_ID,
-      snapshot: { preset: 'understand', a: 1, t: 1.5, maxSheets: 20 },
+      snapshot: { mode: 'understand', a: 1, t: 1.5, maxSheets: 20 },
     });
     const path = await appendBatch({
       cfg,
@@ -91,7 +91,7 @@ test('appendBatch 写清这一批的时间、图片组成、语音、BGM，并�
       frames: 4,
       probe,
       plan: { stats },
-      snapshot: { preset: 'understand', a: 1, t: 1.5, maxSheets: 20 },
+      snapshot: { mode: 'understand', a: 1, t: 1.5, maxSheets: 20 },
     });
     assert.equal(path, recordPathOf(cfg, 'C:/media/video.mp4'));
     const text = await readFile(path, 'utf8');
@@ -123,7 +123,7 @@ test('writeAnalysis 替换占位；同一批再写一次就追加补记，不重
       probe,
       plan: { stats },
       planId: PLAN_ID,
-      snapshot: { preset: 'analysis', a: 0.3, t: 1, maxSheets: 10 },
+      snapshot: { mode: 'analysis', a: 0.3, t: 1, maxSheets: 10 },
     });
     await appendBatch({
       cfg,
@@ -138,7 +138,7 @@ test('writeAnalysis 替换占位；同一批再写一次就追加补记，不重
       frames: 0,
       probe,
       plan: { stats },
-      snapshot: { preset: 'analysis', a: 0.3, t: 1, maxSheets: 10 },
+      snapshot: { mode: 'analysis', a: 0.3, t: 1, maxSheets: 10 },
     });
 
     const first = await writeAnalysis({ cfg, input, planId: PLAN_ID, batch: 1, note: '- 快切卡点，每 0.5 秒换镜' });
@@ -162,7 +162,7 @@ test('record: false 时既不写文档，也不允许写分析', async () => {
   try {
     const cfg = { record: false, recordDir: dir };
     const { stats, probe } = planOf();
-    const path = await ensureHeader({ cfg, input: 'C:/media/video.mp4', probe, plan: { stats }, planId: PLAN_ID, snapshot: { preset: 'analysis', a: 0.3, t: 1, maxSheets: 10 } });
+    const path = await ensureHeader({ cfg, input: 'C:/media/video.mp4', probe, plan: { stats }, planId: PLAN_ID, snapshot: { mode: 'analysis', a: 0.3, t: 1, maxSheets: 10 } });
     assert.equal(path, null);
     const batch = await appendBatch({ cfg, input: 'C:/media/video.mp4', planId: PLAN_ID, batch: { index: 1, total: 1, from: 0, to: 1 }, sheets: [], cellsBySheet: [], transcript: { lines: [] }, audio: audioOf(), skipped: 0, frames: 0 });
     assert.equal(batch, null);

@@ -7,7 +7,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { PRESETS, resolveConfig } from '../index.js';
+import { MODES, resolveConfig } from '../index.js';
 import { planFrames } from '../lib/plan.js';
 
 const TARGET_DURATION = 64.85;
@@ -36,7 +36,7 @@ const show = (label, options) => {
     duration: hit.duration,
     scanFps: 10,
     area: hit.area,
-    ...PRESETS.analysis,
+    ...MODES.analysis,
     ...sampling,
     maxTotalSheets: budget,
     overflow,
@@ -57,7 +57,7 @@ show('C. 预算 12 + stop 截断', { budget: 12, overflow: 'stop' });
 show('D. 预算不设限 + maxGap=2.5', { budget: 500, sampling: { maxGap: 2.5 } });
 
 lines.push('');
-lines.push(`预设现值：analysis maxGap=${PRESETS.analysis.maxGap}，understand maxGap=${PRESETS.understand.maxGap}`);
+lines.push(`模式现值：analysis maxGap=${MODES.analysis.maxGap}，understand maxGap=${MODES.understand.maxGap}`);
 
 await mkdir('F:/Agent/DeepseekHarness/Project/Project20261121', { recursive: true });
 await writeFile('F:/Agent/DeepseekHarness/Project/Project20261121/gap-diag.txt', lines.join('\n') + '\n', 'utf8');

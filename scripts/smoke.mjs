@@ -161,18 +161,18 @@ async function buildFixture() {
  */
 async function compareModes(buildWith, input, label) {
   const cases = [
-    { name: '默认（跟随预设）', cfg: {}, preset: 'analysis' },
-    { name: '预算 3 → 截断', cfg: { maxTotalSheets: 3 }, preset: 'analysis', choice: { id: 'truncate' } },
-    { name: '预算 3 → 密度', cfg: { maxTotalSheets: 3 }, preset: 'analysis', choice: { id: 'density' } },
-    { name: '换 understand', cfg: {}, preset: 'analysis', choice: { id: 'understand' } },
-    { name: 'cutPair 开', cfg: { cutPair: true }, preset: 'analysis' },
-    { name: 'multiCross 关', cfg: { multiCross: false }, preset: 'analysis' },
-    { name: 'a=1.5 省 token', cfg: { a: 1.5 }, preset: 'analysis' },
+    { name: '默认（跟随模式）', cfg: {}, mode: 'analysis' },
+    { name: '预算 3 → 截断', cfg: { maxTotalSheets: 3 }, mode: 'analysis', choice: { id: 'truncate' } },
+    { name: '预算 3 → 密度', cfg: { maxTotalSheets: 3 }, mode: 'analysis', choice: { id: 'density' } },
+    { name: '换 understand', cfg: {}, mode: 'analysis', choice: { id: 'understand' } },
+    { name: 'cutPair 开', cfg: { cutPair: true }, mode: 'analysis' },
+    { name: 'multiCross 关', cfg: { multiCross: false }, mode: 'analysis' },
+    { name: 'a=1.5 省 token', cfg: { a: 1.5 }, mode: 'analysis' },
   ];
   const rows = [];
   for (const item of cases) {
     const scoped = buildWith({ maxTotalSheets: 40, ...item.cfg });
-    const args = { input, preset: item.preset, userConfirmed: true };
+    const args = { input, mode: item.mode, userConfirmed: true };
     if (item.choice !== undefined) args.choice = item.choice;
     const planned = await scoped.video_plan.execute(args, { signal: undefined });
     const ok = typeof planned.planId === 'string';
@@ -199,7 +199,7 @@ async function compareModes(buildWith, input, label) {
     );
   }
   const byMode = Object.fromEntries(rows.map((row) => [row.mode, row]));
-  const auto = byMode['默认（跟随预设）'];
+  const auto = byMode['默认（跟随模式）'];
   const truncate = byMode['预算 3 → 截断'];
   const density = byMode['预算 3 → 密度'];
   const understand = byMode['换 understand'];
@@ -245,14 +245,14 @@ async function main() {
 const byName = buildWith({});
 
   console.log('--- video_plan：全片 ---');
-  const plan = await byName.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
+  const plan = await byName.video_plan.execute({ input: video, mode: 'analysis', userConfirmed: true }, { signal: undefined });
   const planText = byName.video_plan.output.render({}, plan)[0].text;
   console.log(planText);
   await writeFile(join(OUT, 'plan.txt'), planText, 'utf8');
   check('预算够时 plan 给出 planId', typeof plan.planId === 'string', plan.planId ?? '(无)');
   check('预算块说明了够不够', plan.budget?.feasible === true, `required=${plan.budget?.required} max=${plan.budget?.max}`);
 
-  const windowOf = (from, to) => buildWith({ maxTotalSheets: 8 }).video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true, from, to }, { signal: undefined });
+  const windowOf = (from, to) => buildWith({ maxTotalSheets: 8 }).video_plan.execute({ input: video, mode: 'analysis', userConfirmed: true, from, to }, { signal: undefined });
   const stillPlan = await windowOf(0, 7.5);
   const cutPlan = await windowOf(16.5, 23.9);
   const stillRate = stillPlan.plan.count / 7.5;
@@ -276,7 +276,7 @@ const byName = buildWith({});
   }
 
   const tight = buildWith({ maxTotalSheets: 4 });
-  const refused = await tight.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
+  const refused = await tight.video_plan.execute({ input: video, mode: 'analysis', userConfirmed: true }, { signal: undefined });
   check(
     '预算不够时 plan 不给 planId、只给选项',
     refused.planId === undefined && (refused.options ?? []).length >= 3,
@@ -286,7 +286,7 @@ const byName = buildWith({});
   check('预算不够的正文明确禁止先 watch', /Do NOT call video_watch yet/.test(blockedText), 'ok');
 
   const truncatedPlan = await tight.video_plan.execute(
-    { input: video, preset: 'analysis', userConfirmed: true, choice: { id: 'truncate' } },
+    { input: video, mode: 'analysis', userConfirmed: true, choice: { id: 'truncate' } },
     { signal: undefined },
   );
   check('选截断后可以定稿', typeof truncatedPlan.planId === 'string', truncatedPlan.planId ?? '(无)');
@@ -301,7 +301,7 @@ const byName = buildWith({});
 
   // 关键不变量：预算只在 plan 那一步参与决策，watch 不再读它。
   const loose = buildWith({ maxTotalSheets: 100 });
-  const loosePlan = await loose.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
+  const loosePlan = await loose.video_plan.execute({ input: video, mode: 'analysis', userConfirmed: true }, { signal: undefined });
   const strict = buildWith({ maxTotalSheets: 2 });
   const stillRuns = await strict.video_watch.execute({ input: video, planId: loosePlan.planId, batch: 1 }, { signal: undefined });
   check('watch 不再读 maxTotalSheets：配置改成 2 也能执行已定稿的计划', stillRuns.sheets.length > 2, `${stillRuns.sheets.length} 张`);
@@ -314,10 +314,10 @@ const byName = buildWith({});
   check('子图格位不重复', keys.size === watch.frames.length, `${keys.size}/${watch.frames.length}`);
   check('图片尺寸真实（不是 0×0）', watch.sheets.every((sheet) => sheet.image.width > 0), watch.sheets.map((sheet) => `${sheet.image.width}x${sheet.image.height}`).join(' '));
 
-  // ---- 顺序三层：交付单元内子图 / 每张图片内部 / 图片与图片之间 ----
+  // ---- 顺序三层：批次内子图 / 每张图片内部 / 图片与图片之间 ----
   const times = watch.frames.map((frame) => frame.time);
   check(
-    '交付单元内：子图按时间单调不减',
+    '批次内：子图按时间单调不减',
     times.every((time, index) => index === 0 || time >= times[index - 1] - 1e-9),
     `${times.length} 帧`,
   );
@@ -383,7 +383,7 @@ const byName = buildWith({});
     'utf8',
   );
   // 字幕现在按**本批**裁剪，所以要像真模型那样把每一批都取一遍再合并。
-  const subtitlePlan = await byName.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
+  const subtitlePlan = await byName.video_plan.execute({ input: video, mode: 'analysis', userConfirmed: true }, { signal: undefined });
   const batches = [];
   for (let index = 1; index <= 40; index += 1) {
     const value = await byName.video_watch.execute(
