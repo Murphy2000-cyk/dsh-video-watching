@@ -251,7 +251,7 @@ config:
 ```bash
 npm test                               # 73 项：纯函数 + 工具契约 + 渲染
 node scripts/smoke.mjs [视频]          # 端到端：造测试片、跑三个工具、比交付形态
-node scripts/verify-host-contract.mjs  # 用 Agent 自己的校验器验 schema
+node scripts/verify-agent-contract.mjs  # 用 Agent 自己的校验器验 schema
 node scripts/verify-real-output.mjs    # 真跑三个工具，拿真实返回值过校验器
 ```
 

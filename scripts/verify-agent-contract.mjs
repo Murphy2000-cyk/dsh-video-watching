@@ -5,7 +5,7 @@
  * 一个不支持的关键字不是"工具不太好用"，而是 `ctx.tools.register()` 在 apply
  * 期间直接抛错 —— 插件整个装不上，而且报错完全看不出是这个原因。
  *
- * 跑法：`node scripts/verify-host-contract.mjs`
+ * 跑法：`node scripts/verify-agent-contract.mjs`
  * 依赖本机 DSH 安装路径，所以不放进 `npm test`。
  */
 

@@ -1,7 +1,7 @@
 /**
  * 用 Agent 自己的校验器验**真实调用产出**，而不是手写样例。
  *
- * `verify-host-contract.mjs` 验的是"schema 本身合法 + 手写样例过校验"；
+ * `verify-agent-contract.mjs` 验的是"schema 本身合法 + 手写样例过校验"；
  * 手写样例漏一个键是不会报的（`INVALID_TOOL_OUTPUT` 就是这么漏过去的）。
  * 这份脚本走另一条：真造一部片子 → 真跑三个工具的 execute → 拿**真实返回值**
  * 喂给 Agent 的 `validateJsonSchemaValue` → 再喂给各自的 render。
