@@ -410,24 +410,24 @@ BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**
 
 | 文件 | 装什么 | 约行数 |
 |---|---|---|
-| `index.js` | 插件入口 + re-export | 63 |
-| `lib/presets.js` | 两套预设 + `effectiveArgs`（预设与配置的合成） | 57 |
-| `lib/config.js` | 配置归一化：夹取、解析外部命令、猜字体、定缓存与记录目录 | 205 |
-| `lib/tools.js` | 四个工具的定义（**模型读到的描述与参数在这里**） | 640 |
-| `lib/orchestrate.js` | 探测、扫描、plan 初判/定稿、watch 执行、note 落盘、取帧拼图交附件 | 780 |
-| `lib/feasibility.js` | 预算检查：`required` / `minimum` / 四个候选方案 / choice 解析 | 237 |
-| `lib/plans.js` | 计划快照：id 哈希、落盘、校验、淘汰 | 203 |
-| `lib/record.js` | 观看记录：文档头、批次追加、分析补写（Markdown） | 300 |
-| `lib/render.js` | 返回值 → 内容块（纯函数，不碰 IO） | 296 |
-| `lib/util.js` | 执行与渲染共用的小工具 | 311 |
-| `lib/plan.js` | 积分法采样计划 + `planFeasibility` / `fitDensity`（纯算法） | 735 |
-| `lib/scan.js` | raw RGB → 面积变化分 | 254 |
-| `lib/grid.js` | 网格与 token 计量 | 160 |
-| `lib/delivery.js` | 计划分组 → 交付分组、成本 | 65 |
-| `lib/cache.js` | 扫描缓存键与读写 | 126 |
-| `lib/ffmpeg.js` | ffmpeg / ffprobe 命令封装 | 451 |
-| `lib/time.js` | 时间码与字幕解析 | 231 |
-| `lib/audio.js` | 本地语音 + 云端 BGM 分析 | 699 |
+| `index.js` | 插件入口 + re-export | 70 |
+| `lib/presets.js` | 两套预设 + `effectiveArgs`（预设与配置的合成） | 58 |
+| `lib/config.js` | 配置归一化：夹取、解析外部命令、猜字体、定缓存与记录目录 | 212 |
+| `lib/tools.js` | 四个工具的定义（**模型读到的描述与参数在这里**） | 602 |
+| `lib/orchestrate.js` | 探测、扫描、plan 初判/定稿、watch 执行、note 落盘、取帧拼图交附件 | 763 |
+| `lib/feasibility.js` | 预算检查：`required` / `minimum` / 四个候选方案 / choice 解析 | 238 |
+| `lib/plans.js` | 计划快照：id 哈希、落盘、校验、淘汰 | 204 |
+| `lib/record.js` | 观看记录：文档头、批次追加、分析补写（Markdown） | 259 |
+| `lib/render.js` | 返回值 → 内容块（纯函数，不碰 IO） | 293 |
+| `lib/util.js` | 执行与渲染共用的小工具 | 312 |
+| `lib/plan.js` | 积分法采样计划 + `planFeasibility` / `fitDensity`（纯算法） | 736 |
+| `lib/scan.js` | raw RGB → 面积变化分 | 255 |
+| `lib/grid.js` | 网格与 token 计量 | 161 |
+| `lib/delivery.js` | 计划分组 → 交付分组、成本 | 66 |
+| `lib/cache.js` | 扫描缓存键与读写 | 127 |
+| `lib/ffmpeg.js` | ffmpeg / ffprobe 命令封装 | 452 |
+| `lib/time.js` | 时间码与字幕解析 | 232 |
+| `lib/audio.js` | 本地语音 + 云端 BGM 分析 | 700 |
 
 ## 开发
 

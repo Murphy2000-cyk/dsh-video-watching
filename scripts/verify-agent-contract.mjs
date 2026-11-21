@@ -46,7 +46,7 @@ for (const tool of tools) {
 }
 
 /** 造一份与 execute 返回值同形的样例，用来验输出 schema。 */
-const SAMPLE_IMAGE = { attachmentId: 'a1b2', mediaType: 'image/jpeg', bytes: 12345, width: 800, height: 450 };
+const SAMPLE_IMAGE = { attachmentId: 'a1b2', mediaType: 'image/jpeg', bytes: 12345, width: 1280, height: 720 };
 
 // 头字段用**真实链路**算出来（合成序列 → planFrames → delivery → headOf），
 // 不手写：手写样例漏过 `estimate.singles`，单测全绿而真机每次调用都报错。
@@ -57,7 +57,7 @@ const samples = {
   video_watch: {
     ...SAMPLE_HEAD,
     frames: [{ index: 1, time: 0, label: '0:00.000', sheet: 1, cell: 1 }],
-    sheets: [{ sheet: 1, global: 1, from: 0, to: 0.9, cols: 4, rows: 5, width: 800, height: 450, tokens: 233, image: SAMPLE_IMAGE }],
+    sheets: [{ sheet: 1, global: 1, from: 0, to: 0.9, cols: 2, rows: 2, width: 2560, height: 1440, tokens: 384, image: SAMPLE_IMAGE }],
     transcript: { source: 'demo.srt', count: 1, lines: [{ start: 0.5, end: 2, text: '开场' }] },
     skipped: 0,
     batch: { index: 1, total: 3, size: 10, sheets: 28, from: 0, to: 24, next: 2, batchDone: false },

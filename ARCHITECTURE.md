@@ -1,6 +1,6 @@
-﻿# 看视频插件 · 架构与运行流程
+# 看视频插件 · 架构与运行流程
 
-> 插件 id：`video-watching`　包名：`dsh-video-watching`　入口：`index.js`　版本：0.6.0
+> 插件 id：`video-watching`　包名：`dsh-video-watching`　入口：`index.js`　版本：0.7.0
 > 本文描述**当前实现**。凡写"现在"的地方都与代码一致。
 
 ---
@@ -85,24 +85,24 @@
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `index.js` | 63 | 入口：`apply` / `inject` / 再导出 |
-| `lib/presets.js` | 57 | 两套预设与 `effectiveArgs` |
-| `lib/config.js` | 205 | 配置归一化、路径与默认值 |
-| `lib/tools.js` | 640 | 四个工具的定义（schema 与执行体） |
-| `lib/orchestrate.js` | 780 | 探测→扫描→初判/定稿→取帧→拼图→音视频→记录→组装 |
-| `lib/feasibility.js` | 237 | 预算检查：`required`/`minimum`/四选项/`choice` 解析 |
-| `lib/plans.js` | 203 | 计划快照：哈希、落盘、校验、淘汰 |
-| `lib/record.js` | 300 | 观看记录：文档头、批次追加、分析补写 |
-| `lib/plan.js` | 735 | 积分法采样、补帧、分窗、预算、`planFeasibility`、`fitDensity` |
-| `lib/scan.js` | 254 | 全片扫描，产出逐帧变化曲线 |
-| `lib/grid.js` | 160 | 拼图合成、token 估算、尺寸规则 |
-| `lib/delivery.js` | 65 | 计划分组 → 交付分组、成本 |
-| `lib/render.js` | 296 | 返回值 → 内容块（含 budget/options/coverage 正文） |
-| `lib/cache.js` | 126 | 扫描曲线缓存与淘汰 |
-| `lib/audio.js` | 699 | 本地语音识别 + 云端 BGM 分析 |
-| `lib/ffmpeg.js` | 451 | 探测、取帧、拼图、字幕导出 |
-| `lib/util.js` | 311 | 字幕读取、时间码、并发、杂项 |
-| `lib/time.js` | 231 | 时间码解析与切片 |
+| `index.js` | 70 | 入口：`apply` / `inject` / 再导出 |
+| `lib/presets.js` | 58 | 两套预设与 `effectiveArgs` |
+| `lib/config.js` | 212 | 配置归一化、路径与默认值 |
+| `lib/tools.js` | 602 | 四个工具的定义（schema 与执行体） |
+| `lib/orchestrate.js` | 763 | 探测→扫描→初判/定稿→取帧→拼图→音视频→记录→组装 |
+| `lib/feasibility.js` | 238 | 预算检查：`required`/`minimum`/四选项/`choice` 解析 |
+| `lib/plans.js` | 204 | 计划快照：哈希、落盘、校验、淘汰 |
+| `lib/record.js` | 259 | 观看记录：文档头、批次追加、分析补写 |
+| `lib/plan.js` | 736 | 积分法采样、补帧、分窗、预算、`planFeasibility`、`fitDensity` |
+| `lib/scan.js` | 255 | 全片扫描，产出逐帧变化曲线 |
+| `lib/grid.js` | 161 | 拼图合成、token 估算、尺寸规则 |
+| `lib/delivery.js` | 66 | 计划分组 → 交付分组、成本 |
+| `lib/render.js` | 293 | 返回值 → 内容块（含 budget/options/coverage 正文） |
+| `lib/cache.js` | 127 | 扫描曲线缓存与淘汰 |
+| `lib/audio.js` | 700 | 本地语音识别 + 云端 BGM 分析 |
+| `lib/ffmpeg.js` | 452 | 探测、取帧、拼图、字幕导出 |
+| `lib/util.js` | 312 | 字幕读取、时间码、并发、杂项 |
+| `lib/time.js` | 232 | 时间码解析与切片 |
 
 依赖方向是单向的：`index → orchestrate → {feasibility, plan, scan, grid, delivery, audio, ffmpeg, util} → plans/presets → time/cache`。
 
