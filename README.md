@@ -154,45 +154,82 @@
 
 ## 安装
 
-前置条件只有一个：**ffmpeg**。
+**必需**：`ffmpeg`。
+
+**可选**（不准备也能用，只是对应能力会关掉，并在返回里如实说明）：
+
+| 想要 | 需要准备 | 不准备会怎样 |
+|---|---|---|
+| 本地语音识别 | `sherpa-onnx-node` + SenseVoice ONNX 模型 | 语音那一路报 `unavailable`，字幕与 BGM 不受影响 |
+| BGM / 音效分析 | 环境变量 `DASHSCOPE_AUDIO_API_KEY` | BGM 那一路报 `unavailable` |
+| 烧时间码 | 带 `drawtext` 的 ffmpeg + 存在的字体文件 | 自动关掉烧字，清单里会说明 |
 
 ```bash
 dsh plugin --profile web add dsh-video-understanding
 ```
 
-装完重启 `dsh web`。
+装完**重启 `dsh web`**。不重启的话工具列表里看不到新参数，老会话会一直用启动时加载的那份 schema。
 
 `ffprobe` 有就更好（拿结构化元数据最准），**没有也能跑**：缺它的时候探测退回解析 `ffmpeg -i` 打印的元数据。只装过 `pip install imageio-ffmpeg` 的环境就属于"有 ffmpeg、没有 ffprobe"，这条路是特意留的。
 
-扫描缓存默认落在 `~/.dsh/cache/video-understanding/`，可用 `cacheDir` 改到任意绝对路径（目录会自动创建）；缓存按「路径+大小+修改时间+分析帧率+分析尺寸+块参数」失效，改视频或改分析参数都会重算。
+### 换一台电脑 / 换一个 profile
 
-找 ffmpeg 的顺序：配置里的 `ffmpegPath` → `DSH_FFMPEG_PATH` / `FFMPEG_PATH` → `~/.dsh/bin/ffmpeg/` → winget 的 Links 目录 → PATH。往 PATH 里加目录要重启 Agent 才生效，所以插件会先自己看一眼那几个常见位置。
+按这个顺序凑齐，缺哪样就只丢对应的能力，不会整个不可用：
+
+1. **Node ≥ 20**（`package.json` 的 `engines` 要求）。
+2. **ffmpeg**。查找顺序：配置 `ffmpegPath` → `DSH_FFMPEG_PATH` / `FFMPEG_PATH` → `~/.dsh/bin/ffmpeg/` → winget 的 Links 目录 → PATH。往 PATH 里加目录要重启 Agent 才生效，所以插件会先自己看一眼那几个常见位置。
+3. **（可选）`sherpa-onnx-node`**：本地语音的推理引擎，原生包，**不作为插件的硬依赖**。两种办法：
+   - 装进插件目录：`cd <插件目录> && npm install sherpa-onnx-node`
+   - 或者借用机器上已有的那份，用配置 `sherpaPath` 指向它的目录（本机就是借用 DSH 安装里的）。
+4. **（可选）SenseVoice 模型**：一个目录，至少两个文件。
+
+   | 文件 | 大小 | 来源 |
+   |---|---|---|
+   | `model.int8.onnx` | 239,233,841 B（约 228 MB） | `https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17`（同仓库的 `model.onnx` 是 fp32 版，937 MB，不需要） |
+   | `tokens.txt` | 315,894 B | 同一个仓库 |
+
+   放到 `speechModelDir` 指向的目录（默认 `~/.dsh/speech-to-text/sensevoice/models/sensevoice-onnx`）。
+   **最省事的办法**：装过 DSH 自带语音输入的机器上，这份模型已经在那个默认路径了，整目录复制过去即可。
+5. **（可选）密钥**：环境变量 `DASHSCOPE_AUDIO_API_KEY`，值到阿里云百炼控制台申请（地域选华北2北京，BGM 用 `qwen3.8-omni-flash`）。**只放环境变量**，不要写进 profile，更不要提交到仓库。
+
+配好之后**重启 `dsh web`**。然后记住两件事：
+
+- **同一个 profile 里的所有会话都能用**，不需要每个对话重装；
+- **换一个 profile 要在那个 profile 里再装一次**（补丁是按 profile 挂的）。
 
 ## 配置
 
-写在 profile 的 `cordis.patch.yml` 里：
+写在 profile 的 `cordis.patch.yml` 里。下面这份是**照抄就能跑**的最小配置，其余都注释着备查：
 
 ```yaml
 - id: video-understanding
   name: dsh-video-understanding
   config:
+    overflow: stop          # 超预算时：stop = 看到上限就停；不写则 thin = 全片变稀
+    # 采样密度由调用的 preset 决定，配置里不设 a / t / maxGap / maxSheets
     # ffmpegPath: D:/ffmpeg/bin/ffmpeg.exe      # 也认 DSH_FFMPEG_PATH / FFMPEG_PATH
-    # ffprobePath: D:/ffmpeg/bin/ffprobe.exe    # 也认 DSH_FFPROBE_PATH / FFPROBE_PATH
-    # 模式由调用的 preset 决定，配置里不再设 a/maxGap 这类采样参数
-    t: 1                  # 密度窗口（秒）
-    maxGap: 5             # 强制补帧间隔（秒）
-    multiCross: true      # 允许一个分析间隔内多个时刻
-    cutPair: false        # 硬切取前后两帧
-    scanFps: 10           # 分析帧率
-    longSide: 120         # 分析图长边
-    block: 4              # 方块边长
-    blockThreshold: 8     # 块级阈值（0~255）
-    quality: 3            # JPEG -q:v，2 最好 / 31 最差
-    burn: time            # time / index / none
-    fontFile: C:/Windows/Fonts/consolab.ttf
-    cacheDir: ~/.dsh/cache/video-understanding   # 可改成任意绝对路径
+    # ffprobePath: D:/ffmpeg/bin/ffprobe.exe
+    # scanFps: 10             # 分析帧率（1–30）
+    # longSide: 120           # 分析图长边（32–480）
+    # block: 4                # 面积变化分的方块边长（2–16）
+    # blockThreshold: 8       # 块级阈值（1–64，0–255 量纲）
+    # quality: 3              # JPEG -q:v，2 最好 / 31 最差
+    # burn: time              # time / index / none
+    # fontFile: C:/Windows/Fonts/consolab.ttf   # 非 Windows 上没有该文件，会自动关掉烧字
+    # cacheDir: F:/Data/video-understanding     # 默认 ~/.dsh/cache/video-understanding
+    # cacheMaxEntries: 200    # 缓存最多留几个文件，超了按最久没写过的淘汰
+    # speechMode: auto        # off / auto：本地语音识别
+    # speechModelDir: ~/.dsh/speech-to-text/sensevoice/models/sensevoice-onnx
+    # sherpaPath: C:/somewhere/node_modules/sherpa-onnx-node
+    # bgmMode: auto           # off / auto：off 则不上传音频
+    # bgmModel: qwen3.8-omni-flash
+    # bgmKeyEnv: DASHSCOPE_AUDIO_API_KEY
+    # bgmChunkSeconds: 30     # 片长，等于 BGM 变化点的时间精度
+    # bgmMaxChunks: 24        # 片数上限，超了均匀抽样
     # transcriptCommand: ["D:/asr/.venv/Scripts/python.exe", "D:/asr/run.py", "{input}", "--out", "{output}"]
 ```
+
+扫描缓存默认落在 `~/.dsh/cache/video-understanding/`，可用 `cacheDir` 改到任意绝对路径（目录会自动创建）；缓存按「路径+大小+修改时间+分析帧率+分析尺寸+块参数」失效，改视频或改分析参数都会重算。
 
 烧字需要这份 ffmpeg 带 `drawtext`（Gyan 等完整构建有，`imageio_ffmpeg` 那种精简构建没有）。探不到就自动关掉烧字，并在清单里如实说明。
 
@@ -260,6 +297,7 @@ BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**
 - **`tile` 只按连续文件名读**。取帧有失败时脚本会把成功的重排成连续序列，清单写的是重排后的子图序号，时间码是真实的。
 - **淡入淡出的黑帧不再主动躲开**（0.3.1 会躲）。现在按窗口均匀重取，过渡里的黑帧是转场的一部分，躲掉反而看不到转场怎么做的。
 - **单帧不再打包**（0.5.0 起）。一帧一张图，所以长片安静段（每几秒一帧）的图数会比过去多得多，必须靠 `maxSheets` 和 `overflow` 兜住。
+- **非 Windows 默认不烧字**。默认字体是 Windows 的 `consolab.ttf`；在 Linux / macOS 上这个文件不存在，插件会检测到并**自动关掉烧字**（不报错）。要烧字就自己给 `fontFile` 一个存在的字体路径。
 - **BGM 风格判断的验证面还很窄**。只测过合成鼓点（答"电子/四拍/无旋律"）与纯旁白（答"无音乐"）；真实配乐下的准确率未验证。
 - **本地语音会写错专有名词**。实测把 "GitHub" 转成 "gitopub"；时间戳是准的，字面不保证。
 - **BGM 那一路会把音频上传到云端**。敏感素材请把 `bgmMode` 设成 `off`。
