@@ -47,6 +47,15 @@
     "multimodal"
   ],
   "license": "MIT",
+  "author": "ChengYK (https://github.com/Murphy2000-cyk)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Murphy2000-cyk/dsh-video-watching.git"
+  },
+  "homepage": "https://github.com/Murphy2000-cyk/dsh-video-watching#readme",
+  "bugs": {
+    "url": "https://github.com/Murphy2000-cyk/dsh-video-watching/issues"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

@@ -1,8 +1,10 @@
-﻿# dsh-video-watching
+# dsh-video-watching
 
 让 DSH 按**画面累计变化量**决定看多密：变化攒够了才取一帧，一秒攒够几次就把它们拼进同一张图片。
 
 不是"每 N 秒一帧"，也不是"先抽满再去重"，而是把变化量当电量来攒 —— 安静处几秒才落一帧，猛变处一秒落好几帧，转场和硬切一定留痕。
+
+> 上手怎么装、参数怎么配、记录文档长什么样，见 [使用手册.md](使用手册.md)；改动历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 它解决的问题
 
@@ -264,7 +266,12 @@
 | 烧时间码 | 带 `drawtext` 的 ffmpeg + 存在的字体文件 | 自动关掉烧字，清单里会说明 |
 
 ```bash
-dsh plugin --profile web add dsh-video-watching
+# 1) 直接从 GitHub 装：pnpm 会把仓库拉进 profile
+dsh plugin --profile web add github:Murphy2000-cyk/dsh-video-watching
+
+# 2) 或者先 clone，再装本地目录（适合改代码二次开发：重启后改动即生效）
+git clone https://github.com/Murphy2000-cyk/dsh-video-watching.git
+dsh plugin --profile web add file:F:/path/to/dsh-video-watching
 ```
 
 装完**重启 `dsh web`**。不重启的话工具列表里看不到新参数，老会话会一直用启动时加载的那份 schema。
@@ -442,9 +449,9 @@ node scripts/verify-real-output.mjs    # 真跑四个工具，拿真实返回值
 
 ## 许可
 
-代码 MIT。
+代码 MIT，全文见 `LICENSE`。
 
-图标形象是社区创作的「DeepSeek 鲸鱼娘」风格插画，**版权归原作者**。本仓库仅在本机自用、不用于商业分发；要随插件一起对外分发，请先取得作者许可。
+图标素材（`art/*.png`、`icon.png`、`icon.svg`）是社区创作的「DeepSeek 鲸鱼娘」风格插画，**版权归原作者**，不在 MIT 授权范围内，只是为了让插件有个图标而原样附带，详见 `NOTICE`。商用或再分发之前请先取得原作者许可；原作者如不希望它出现在本仓库，开一个 issue 即可，会立刻移除（插件退回无图标状态，功能不受影响）。
 
 图标文件有两个，内容必须一致：
 

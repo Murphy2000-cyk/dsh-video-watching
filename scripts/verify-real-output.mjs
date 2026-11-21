@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 用 Agent 自己的校验器验**真实调用产出**，而不是手写样例。
  *
  * `verify-agent-contract.mjs` 验的是"schema 本身合法 + 手写样例过校验"；
@@ -18,13 +18,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildTools, resolveConfig } from '../index.js';
 import { createRunner } from '../lib/ffmpeg.js';
 
-const DSH_TOOLS = 'C:/Users/lenovo/AppData/Roaming/npm/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-tools/lib/types/json-schema.js';
+// DSH 装在哪由环境变量给；没给就按 npm 全局安装的默认位置猜（Windows: %APPDATA%\npm）。
+const DSH_HOME = process.env.DSH_PACKAGE_DIR ?? `${(process.env.APPDATA ?? '').replace(/\\/g, '/')}/npm/node_modules/@deepseek-ai/dsh`;
+const DSH_TOOLS = `${DSH_HOME}/node_modules/@deepseek-ai/dsh-tools/lib/types/json-schema.js`;
 const { validateJsonSchemaValue } = await import(pathToFileURL(DSH_TOOLS).href);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'smoke-out', '_real');
 // 本机 DSH 安装里自带 sherpa-onnx-node 与 SenseVoice 的 ONNX 模型，直接借用，免装原生包。
-const DSH_SHERPA = 'C:/Users/lenovo/AppData/Roaming/npm/node_modules/@deepseek-ai/dsh/node_modules/sherpa-onnx-node';
+const DSH_SHERPA = process.env.DSH_SHERPA ?? `${DSH_HOME}/node_modules/sherpa-onnx-node`;
 const cfg = resolveConfig({ sherpaPath: DSH_SHERPA, recordDir: OUT });
 const FFMPEG = cfg.ffmpegPath;
 

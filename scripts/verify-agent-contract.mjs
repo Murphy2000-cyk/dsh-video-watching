@@ -12,7 +12,9 @@
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 
-const DSH_TOOLS = 'C:/Users/lenovo/AppData/Roaming/npm/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-tools/lib/types/json-schema.js';
+// DSH 装在哪由环境变量给；没给就按 npm 全局安装的默认位置猜（Windows: %APPDATA%\npm）。
+const DSH_HOME = process.env.DSH_PACKAGE_DIR ?? `${(process.env.APPDATA ?? '').replace(/\\/g, '/')}/npm/node_modules/@deepseek-ai/dsh`;
+const DSH_TOOLS = `${DSH_HOME}/node_modules/@deepseek-ai/dsh-tools/lib/types/json-schema.js`;
 
 const { assertSupportedJsonSchema, assertObjectJsonSchema, validateJsonSchemaValue } = await import(
   pathToFileURL(DSH_TOOLS).href

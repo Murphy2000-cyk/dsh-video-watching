@@ -306,7 +306,7 @@ index total size sheets from to next batchDone videoComplete
 
 | 内容 | 位置 |
 |---|---|
-| 插件本体 | `F:\Agent\DeepseekHarness\dsh-video-watching\` |
+| 插件本体 | 仓库根目录（DSH 以插件包的形式加载，路径由 profile 决定） |
 | 扫描缓存 | profile 配置的 `cacheDir`（当前指向 `Data-of-skill-plugin\agent-data\cache\video-watching`） |
 | 计划快照 | 同目录下的 `plans\` |
 | 观看记录 | `recordDir`（默认桌面）下的 `<视频名>.观看记录.md` |

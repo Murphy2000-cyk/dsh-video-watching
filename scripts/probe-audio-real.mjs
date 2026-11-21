@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 真片子上的音频端到端验证：本地语音 + 云端 BGM/音效。
  *
  * 用一支 3 分 51 秒的讲解片（有旁白、没配乐），看：
@@ -16,7 +16,8 @@ import { createRunner } from '../lib/ffmpeg.js';
 
 // 视频路径：命令行第一个参数优先，没给就用本机这支讲解片当默认样例。
 const VIDEO = process.argv[2] ?? 'F:/Agent/DeepseekHarness/Interaction/20261104_litsearch_v220_视频/literature-search_2.2.0_介绍.mp4';
-const DSH_SHERPA = 'C:/Users/lenovo/AppData/Roaming/npm/node_modules/@deepseek-ai/dsh/node_modules/sherpa-onnx-node';
+// 借用机器上 DSH 自带的 sherpa-onnx-node；也可用环境变量 DSH_SHERPA 直接指过去。
+const DSH_SHERPA = process.env.DSH_SHERPA ?? `${(process.env.APPDATA ?? '').replace(/\\/g, '/')}/npm/node_modules/@deepseek-ai/dsh/node_modules/sherpa-onnx-node`;
 
 function spawnStub(spec) {
   const child = spawn(spec.argv[0], spec.argv.slice(1), { cwd: spec.cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });

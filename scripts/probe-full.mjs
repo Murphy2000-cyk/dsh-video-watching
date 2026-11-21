@@ -15,7 +15,8 @@ const VIDEO = process.argv[2];
 const OUT = process.argv[3];
 const MODE = process.argv[4] ?? 'analysis';
 const MAX_SHEETS = Number(process.argv[5] ?? 12);
-const DSH_SHERPA = 'C:/Users/lenovo/AppData/Roaming/npm/node_modules/@deepseek-ai/dsh/node_modules/sherpa-onnx-node';
+// 借用机器上 DSH 自带的 sherpa-onnx-node；也可用环境变量 DSH_SHERPA 直接指过去。
+const DSH_SHERPA = process.env.DSH_SHERPA ?? `${(process.env.APPDATA ?? '').replace(/\\/g, '/')}/npm/node_modules/@deepseek-ai/dsh/node_modules/sherpa-onnx-node`;
 
 if (!VIDEO || !OUT) throw new Error('用法：node scripts/probe-full.mjs <视频> <输出目录>');
 await mkdir(OUT, { recursive: true });
