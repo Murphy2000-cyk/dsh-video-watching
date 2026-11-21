@@ -1,7 +1,7 @@
 {
   "name": "dsh-video-watching",
-  "version": "0.5.0",
-  "description": "Watch a video by accumulated change, one image per delivery unit: a dense second becomes one 2x2/3x3/4x4 sheet (1080p, ~384 tokens), sparse frames get their own 1080p image, and maxSheets caps how many images you pay for.",
+  "version": "0.6.0",
+  "description": "Plan first, pay once: video_plan checks whether maxTotalSheets covers the whole clip and hands out a planId, video_watch only executes that approved plan. Sampling follows accumulated change, one image per delivery unit (1080p / ~384 tokens).",
   "type": "module",
   "main": "./index.js",
   "exports": {

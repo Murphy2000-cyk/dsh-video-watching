@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Watch video",
-    "description": "An adaptive video understanding plugin for DSH, built to make sense of complex effects."
+    "description": "Plan first, pay once: video_plan checks the whole-clip budget and issues a planId; video_watch only executes that approved plan."
   }
 }

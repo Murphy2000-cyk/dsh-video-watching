@@ -32,7 +32,7 @@ function syntheticArea() {
  */
 export function sampleAnalysis() {
   const area = syntheticArea();
-  const plan = planFrames({ duration: DURATION, scanFps: FPS, area, a: 0.3, t: 1, maxGap: 5, maxFrames: 60 });
+  const plan = planFrames({ duration: DURATION, scanFps: FPS, area, a: 0.3, t: 1, maxGap: 5 });
   const groups = buildGroups({ groups: plan.groups, perSheet: 20 });
   const estimate = groupCost(groups, 16 / 9);
   return { plan, groups, estimate, area };

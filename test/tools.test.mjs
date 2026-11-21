@@ -92,6 +92,67 @@ test('renderPlan 不产出任何图片', () => {
   assert.match(blocks[0].text, /video-plan/);
 });
 
+test('截断写进正文：模型不会把 batchDone=true 读成"整片看完了"', () => {
+  const head = sampleHead();
+  const truncated = {
+    ...head,
+    plan: { ...head.plan, truncated: true, videoComplete: false, coveredTo: 12, unseenSeconds: 78, sheets: 3 },
+  };
+  const text = byName.video_plan.output.render({}, truncated)[0].text;
+  assert.match(text, /<coverage videoComplete="false"/);
+  assert.match(text, /was NOT watched/);
+  // 没截断时不该出现这行（避免吓唬人）
+  assert.doesNotMatch(byName.video_plan.output.render({}, head)[0].text, /<coverage/);
+});
+
+test('密度被调过时写进正文：说清是预算压的，不是预设的密度', () => {
+  const head = sampleHead();
+  const thinned = { ...head, plan: { ...head.plan, thinned: true, aEff: 2.4, scale: 8, sheets: 9 } };
+  const text = byName.video_plan.output.render({}, thinned)[0].text;
+  assert.match(text, /<density-changed thinned="true"/);
+  assert.match(text, /sparser than the preset/);
+  assert.doesNotMatch(byName.video_plan.output.render({}, head)[0].text, /<density-changed/);
+});
+
+test('maxGap 失守单独成行，不和"没变化"混为一谈', () => {
+  const head = sampleHead();
+  const broken = { ...head, plan: { ...head.plan, maxGapBroken: true, maxIntervalSeconds: 8.2 } };
+  const text = byName.video_plan.output.render({}, broken)[0].text;
+  assert.match(text, /<gap broken="true" promised="5s" actual="8.2s">/);
+});
+
+test('预算不够时：正文给选项、给数字，并明确禁止先 watch', () => {
+  const head = sampleHead();
+  const blocked = {
+    ...head,
+    budget: { required: 128, minimum: 96, max: 100, feasible: false, sheets: 128, tokens: 49152, coveredTo: 90, unseenSeconds: 0, batches: 13, a: 0.3, t: 1 },
+    options: [
+      { id: 'raise', sheets: 128, tokens: 49152, coveredTo: 90, unseenSeconds: 0, batches: 13, a: 0.3, t: 1, maxGap: 5, multiCross: true, cutPair: false, maxSheets: 10, budget: 128, feasible: true, recommended: false, note: 'full' },
+      { id: 'truncate', sheets: 100, tokens: 38400, coveredTo: 62, unseenSeconds: 28, batches: 10, a: 0.3, t: 1, maxGap: 5, multiCross: true, cutPair: false, maxSheets: 10, budget: 100, feasible: true, recommended: true, note: 'stop early' },
+    ],
+  };
+  const text = byName.video_plan.output.render({}, blocked)[0].text;
+  assert.match(text, /<budget required="128" minimum="96" max="100" feasible="false"/);
+  assert.match(text, /<options>/);
+  assert.match(text, /raise\s+128 sheets/);
+  assert.match(text, /truncate\s+100 sheets/);
+  assert.match(text, /Do NOT call video_watch yet/);
+  assert.doesNotMatch(text, /<plan-id>/);
+});
+
+test('预算够时：给 planId 并指向 watch', () => {
+  const head = sampleHead();
+  const ready = {
+    ...head,
+    planId: '0123456789abcdef',
+    budget: { required: 12, minimum: 12, max: 100, feasible: true, sheets: 12, tokens: 4608, coveredTo: 90, unseenSeconds: 0, batches: 2, a: 0.3, t: 1 },
+  };
+  const text = byName.video_plan.output.render({}, ready)[0].text;
+  assert.match(text, /<plan-id>0123456789abcdef<\/plan-id>/);
+  assert.match(text, /call video_watch with planId="0123456789abcdef"/);
+  assert.doesNotMatch(text, /Do NOT call video_watch/);
+});
+
 test('renderCloseup 一帧一图', () => {
   const value = {
     path: 'demo.mp4',
@@ -177,10 +238,12 @@ test('两种预设：解析更密、理解更省，显式参数压过预设', ()
   assert.equal(effectiveArgs({ preset: 'nonsense' }, cfg).a, PRESETS.analysis.a);
 });
 
-test('preset 是必填参数（模型必须先问用户）', () => {
-  for (const name of ['video_watch', 'video_plan']) {
-    assert.ok(byName[name].parameters.required.includes('preset'), name + ' 应当要求 preset');
-    assert.deepEqual(byName[name].parameters.properties.preset.enum, ['analysis', 'understand']);
-  }
+test('preset 只在 plan 上是必填（模式在 plan 那一步定），watch 要的是 planId', () => {
+  assert.ok(byName.video_plan.parameters.required.includes('preset'), 'plan 应当要求 preset');
+  assert.ok(byName.video_plan.parameters.required.includes('userConfirmed'), 'plan 应当要求 userConfirmed');
+  assert.deepEqual(byName.video_plan.parameters.properties.preset.enum, ['analysis', 'understand']);
+  assert.ok(byName.video_watch.parameters.required.includes('planId'), 'watch 必须带 planId');
+  assert.equal(byName.video_watch.parameters.properties.preset, undefined, 'watch 不再决定模式');
+  assert.equal(byName.video_watch.parameters.properties.userConfirmed, undefined, '确认发生在 plan 那一步');
   assert.equal(byName.video_closeup.parameters.properties.preset, undefined, 'closeup 不需要模式');
 });

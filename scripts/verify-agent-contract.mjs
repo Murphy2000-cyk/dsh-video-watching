@@ -60,7 +60,7 @@ const samples = {
     sheets: [{ sheet: 1, global: 1, from: 0, to: 0.9, cols: 4, rows: 5, width: 800, height: 450, tokens: 233, image: SAMPLE_IMAGE }],
     transcript: { source: 'demo.srt', count: 1, lines: [{ start: 0.5, end: 2, text: '开场' }] },
     skipped: 0,
-    batch: { index: 1, total: 3, size: 10, sheets: 28, from: 0, to: 24, next: 2, done: false },
+    batch: { index: 1, total: 3, size: 10, sheets: 28, from: 0, to: 24, next: 2, batchDone: false },
     audio: sampleAudio(),
   },
   video_closeup: {
@@ -96,4 +96,43 @@ if (failures.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(`契约校验通过：${tools.length} 个工具的 parameters 与 output 都被 Agent 校验器接受，样例值也过校验。`);
+}
+
+// 计划工具还有第二种形态：预算不够、只给选项不给 planId。它同样必须过 schema 与 render。
+const planTool = tools.find((tool) => tool.name === 'video_plan');
+const option = {
+  id: 'truncate',
+  sheets: 100,
+  tokens: 38400,
+  coveredTo: 62,
+  unseenSeconds: 28,
+  batches: 10,
+  a: 0.3,
+  t: 1,
+  maxGap: 5,
+  multiCross: true,
+  cutPair: false,
+  maxSheets: 10,
+  budget: 100,
+  feasible: true,
+  recommended: true,
+  note: 'stop early',
+};
+const blocked = {
+  ...SAMPLE_HEAD,
+  budget: { required: 128, minimum: 96, max: 100, feasible: false, sheets: 128, tokens: 49152, coveredTo: 90, unseenSeconds: 0, batches: 13, a: 0.3, t: 1 },
+  options: [option, { ...option, id: 'raise', budget: 128, recommended: false, note: 'full coverage' }],
+};
+const blockedProblems = validateJsonSchemaValue(planTool.output.schema, blocked);
+if (blockedProblems.length > 0) {
+  console.error(`预算不足形态没过 schema → ${blockedProblems.join('；')}`);
+  process.exitCode = 1;
+} else {
+  const text = planTool.output.render({}, blocked)[0].text;
+  if (!/Do NOT call video_watch yet/.test(text) || !/<options>/.test(text)) {
+    console.error('预算不足形态的正文没写清"先问用户、别 watch"');
+    process.exitCode = 1;
+  } else {
+    console.log('另外：预算不足形态（budget + options）也过 schema，正文已明确禁止先 watch。');
+  }
 }

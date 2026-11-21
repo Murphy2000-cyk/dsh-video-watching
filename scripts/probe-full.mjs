@@ -73,7 +73,7 @@ const ctx = {
   tools: { register: () => () => {} },
 };
 
-const cfg = resolveConfig({ sherpaPath: DSH_SHERPA });
+const cfg = resolveConfig({ sherpaPath: DSH_SHERPA, maxTotalSheets: MAX_SHEETS });
 const run = createRunner((spec) => spawnStub(spec), { graceMs: 2000, timeoutMs: 300000 });
 const tools = buildTools({ ctx, run, cfg });
 const byName = Object.fromEntries(tools.map((tool) => [tool.name, tool]));
@@ -87,9 +87,20 @@ const plan = await byName.video_plan.execute({ input: VIDEO, preset: PRESET, use
 say(`=== video_plan（${((Date.now() - started) / 1000).toFixed(1)} s）===`);
 say(byName.video_plan.output.render({}, plan)[0].text);
 
+// 预算不够时先按"截断"定稿（探针要的是能跑通，不是替用户选方案）。
+let planId = plan.planId;
+if (typeof planId !== 'string') {
+  const committed = await byName.video_plan.execute(
+    { input: VIDEO, preset: PRESET, userConfirmed: true, choice: { id: 'truncate' } },
+    { signal: undefined },
+  );
+  planId = committed.planId;
+  say(`\n（预算 ${MAX_SHEETS} 张不够全片，已按 truncate 定稿）`);
+}
+
 // ---- 2. video_watch ----
 started = Date.now();
-const watch = await byName.video_watch.execute({ input: VIDEO, preset: PRESET, userConfirmed: true }, { signal: undefined });
+const watch = await byName.video_watch.execute({ input: VIDEO, planId, batch: 1 }, { signal: undefined });
 const watchSeconds = ((Date.now() - started) / 1000).toFixed(1);
 say('');
 say(`=== video_watch（${watchSeconds} s）===`);

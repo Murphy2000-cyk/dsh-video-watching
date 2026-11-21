@@ -19,11 +19,11 @@
 
 | 工具 | 干什么 | 视觉 token |
 |---|---|---|
-| `video_plan` | 只扫描不取图：报时长、切点数、密度地图、要几张图、大概多少钱（**同样要先确认模式**） | **0** |
-| `video_watch` | 按计划交付拼图 + 时间码清单 + 字幕 + 音频分析（**必须带 `userConfirmed: true`，见下**） | 每张图 384（1440p 拼图 / 1080p 单帧） |
+| `video_plan` | 扫描并**判预算**：报时长、切点、密度地图、完整看完要几张图、`maxTotalSheets` 够不够。够了就给 `planId`；不够就给四条带数字的选项（抬预算 / 截断 / 换档 / 调 a、t） | **0** |
+| `video_watch` | 凭 `planId` 执行已批准的计划，按批交付拼图 + 时间码清单 + 字幕 + 音频分析 | 每张图 384（1440p 拼图 / 1080p 单帧） |
 | `video_closeup` | 按时间码取回全分辨率单帧 | 384（原分辨率，单图封顶） |
 
-先 `video_plan` 看计划，再决定要不要 `video_watch`；图里某张子图糊得看不清，用 `video_closeup` 对着时间码取原图。
+顺序是硬的：**先 plan 拿到 `planId`，再 watch**。plan 就是"这支片子能不能完整看下来、要花多少钱"的那道闸门；watch 只执行，不再改预算或密度。图里某张子图糊得看不清，用 `video_closeup` 对着时间码取原图。
 
 ## 名词
 
@@ -63,61 +63,79 @@
 7. **硬切可选取前后两帧**：`cutPair` 打开时，对"单间隔瞬时跳变"取前一帧 + 后一帧。
    判定收得很紧（单帧跳变 ≥ 0.5 且前后两个间隔都低于 0.15），渐变转场永远不会命中 ——
    那些窗口仍然按密度取满子图，转场过程完整保留。
-8. **预算按"图"算**：一次交付出去的图片张数超过 `maxSheets` 就抬 `a` 再走一遍（二分 10 次）。
+8. **预算在 plan 里判，不在取图时收**：按上面这套口径把整段铺满要的图片张数是 `required`，和配置里的 `maxTotalSheets` 比。够，就给 `planId` 让 watch 执行；不够，**不会**悄悄抬 `a` 或砍尾巴，而是把四条带数字的路交给你选。
    一整个 2×2/3×3/4×4 拼图只算**一张**图片，因为一张图约 384 token，跟里面几张子图无关 ——
-   所以"多少帧画面"不决定钱，"多少张图片"才决定。抬阈值而不是砍尾巴，因为"抽稀"要全局一致。
+   所以"多少帧画面"不决定钱，"多少张图片"才决定。
 
-扫描结果按 `路径 + 大小 + 修改时间 + 分析帧率 + 分析尺寸 + 块参数` 缓存到 `~/.dsh/cache/video-watching/`。
+扫描结果按 `路径 + 大小 + 修改时间 + 分析帧率 + 分析尺寸 + 块参数` 缓存在配置的 `cacheDir`（默认 `~/.dsh/cache/video-watching/`）；定稿的计划快照存在同目录的 `plans/` 下。
 
-## 两种模式（`preset` 必填，且每次看视频都要问）
+## 两道门禁：模式 + 预算
 
-**这个插件在开工之前有一道硬门禁**：`video_plan` 和 `video_watch` 都要求 `userConfirmed: true`，否则直接报错、**不扫描、不出图、不花钱**。因为"走解析还是走理解"是插件干活之前的第一个决定，不该等到取图那一步再定。
-门禁存在的原因很实际：插件能被模型看到的只有工具契约，`README` 这类说明文档它不会主动读，所以"必须先问用户"只能写在参数里。
+**第一道在 plan 之前**：`video_plan` 要求 `userConfirmed: true`，否则直接报错、**不扫描、不出图、不花钱**。因为"走解析还是走理解"是插件干活之前的第一个决定，不该等到取图那一步再定。
 
-也就是说每次看视频（**哪怕是同一支视频、同一个会话里第二次看**）都要走这个顺序：
+**第二道也在 plan 里**：plan 会按当前档位、按预设密度，算出**完整看完这段窗口需要多少张图**（`required`），和配置里的 `maxTotalSheets` 比。不够时它**不给 `planId`**，只给四条路，每条都带数字：
 
-1. 模型问用户：用 `analysis`（看剪辑手法与画面变化，密度高、图多）还是 `understand`（只看内容，更省）？
-2. 用户回答。
-3. 模型带着 `preset=<回答>` 与 `userConfirmed: true` 调用。
+```
+<budget required="128" minimum="96" max="100" feasible="false" .../>
+<options>
+  raise       128 sheets  full coverage  a=0.3 t=1  budget=128
+  truncate    100 sheets  covers to 0:03:42, 88s unseen  a=0.3 t=1  budget=100
+  understand   44 sheets  full coverage  a=1 t=1.5  budget=100
+  density     100 sheets  full coverage  a=0.47 t=1.25  budget=100
+</options>
+```
 
-模型自己猜一个 `preset` 再补个 `userConfirmed: true`，等于绕过门禁；这属于违规，不是"合理默认"。
+模型必须把这些数字摆给用户，用户选一条，再带 `choice={"id":"..."}` 调一次 plan 定稿。**watch 没有 planId 就跑不起来**，所以"预算不够就悄悄变稀 / 悄悄截断"这条老路被堵死了。
+
+`raise` 的预算是**一次性**的（只进快照，不改 profile）；想长期改就动配置里的 `maxTotalSheets`。
 
 ## 两种模式
 
-> **采样口径不在工具参数里。** `a` `t` `maxGap` `multiCross` `cutPair` `maxSheets` `overflow`
-> 这七个值模型传不进来：工具 schema 里没有这些字段，传了会被 Agent 拒。它们只有两个来源：
-> 预设（默认值）和 profile 配置（覆盖）。**模型只能选模式，不能改口径。**
+**采样口径不在工具参数里。** `a` `t` `maxGap` `multiCross` `cutPair` `maxSheets`
+这六个值模型传不进来：schema 里没有这些字段，传了会被 Agent 拒。它们只有两个来源：
+预设（默认值）和 profile 配置（覆盖）。**模型只能选模式，不能改口径。**
 
-调用 **必须** 传 `preset`，代码不替用户猜；而且每次看视频（含同一支视频看第二遍）都要先问用户。
+`preset` 在 plan 时必填，代码不替用户猜：
 
-| 模式 | `preset` | `a` | `maxGap` | `maxSheets` | `cutPair` | 适用 |
-|---|---|---|---|---|---|---|
-| **视频解析** | `analysis` | `0.3` | `5` | `5` | `false` | 识别动画、运镜、特效：密度按"看清手法"给 |
-| **视频理解** | `understand` | `1` | `6` | `10` | `false` | 只认视频主要内容：窗口放宽到 1.5 秒，容忍更长间隔 |
+| 模式 | `preset` | `a` | `maxGap` | `maxSheets`（每批） | 适用 |
+|---|---|---|---|---|---|
+| **视频解析** | `analysis` | `0.3` | `5` | `10` | 识别动画、运镜、特效：密度按"看清手法"给 |
+| **视频理解** | `understand` | `1` | `6` | `20` | 只认视频主要内容：窗口放宽到 1.5 秒，容忍更长间隔 |
 
-判定顺序是 **显式单参 > preset > 配置文件**：预设给一整套默认值，想微调仍可直接传 `a`、`maxGap`。解析模式想要"切点前后各一帧"，单独传 `cutPair: true` 即可（当前默认与旧版一致，是关的）。
+`cutPair` 两档都是关的；配置里打开后，硬切窗口会取前后两帧。
 
 ## 参数
 
-参数分两组：**采样参数只由 `preset` 决定**（可在单次调用里覆盖，配置文件里不设），**其余是配置参数**。
+三层：**工具参数**（模型每次可传）、**采样参数**（跟随预设，配置可覆盖）、**其余配置**（写 profile）。
 
-### 采样参数（跟随 preset，调用时可覆盖）
+### 工具参数
+
+| 工具 | 参数 | 必填 | 说明 |
+|---|---|---|---|
+| `video_plan` | `input` `preset` `userConfirmed` | ✅ | 模式由用户定 |
+| | `from` `to` | | 只看这一段（判够不够也按这段算） |
+| | `choice` | | 用户选完方案后回填：`{id, budget?, a?, t?}`，`id` ∈ raise / truncate / understand / density |
+| `video_watch` | `input` `planId` | ✅ | `planId` 由 plan 返回，没有就报错 |
+| | `batch` `burn` `transcriptFile` | | 第几批 / 角标内容 / 外部字幕 |
+| `video_closeup` | `input` `times` | ✅ | 时间码，`12.5` 或 `"01:30"` |
+
+### 采样参数（跟随 preset，配置可覆盖，模型传不进）
 
 | 参数 | `analysis` | `understand` | 作用 |
 |---|---|---|---|
-| `a` | 0.3 | 1 | 攒够几个"满屏变化"落一帧，越小越密（配置项可覆盖） |
+| `a` | 0.3 | 1 | 攒够几个"满屏变化"落一帧，越小越密 |
 | `t` | 1 | 1.5 | 密度窗口（秒），窗口内时刻数决定网格阶数 |
 | `maxGap` | 5 | 6 | 超过这么多秒没取帧就强制补一帧；`0` 关闭 |
 | `multiCross` | true | true | 允许一个 0.1 秒间隔里落多个时刻 |
-| `cutPair` | false | false | 硬切取前后两帧（配置项可覆盖） |
-| `maxSheets` | **10** | **20** | **每个交付单元（一批）**的图片张数上限，一个拼图也只算一张图片（配置项可覆盖） |
+| `cutPair` | false | false | 硬切取前后两帧 |
+| `maxSheets` | **10** | **20** | **每批**图片张数上限；只影响切批，不影响总花费 |
 
 ### 配置参数（写 profile）
 
 | 参数 | 默认 | 范围 | 作用 |
 |---|---|---|---|
-| `maxTotalSheets` | `100` | 1–5000 | **整片**最多交付多少张图（跨所有批次），真正的花钱上限 |
-| `overflow` | `stop` | `thin/stop` | 超过 `maxTotalSheets` 时：全片变稀 / 看到上限就停（返回 `truncated` 与 `coveredTo`） |
+| `maxTotalSheets` | `100` | 1–5000 | **整片**图数上限，也是 plan 判"完整看完够不够"的唯一基准 |
+| `overflow` | `stop` | `thin/stop` | 只影响 plan 的**推荐项**（`stop` 推荐截断、`thin` 推荐调 a/t），不再自动执行 |
 | `scanFps` | `10` | 1–30 | 分析帧率，只影响变化率分辨率 |
 | `longSide` | `120` | 32–480 | 分析图长边（1080p ÷ 16） |
 | `block` / `blockThreshold` | `4` / `8` | 2–16 / 1–64 | 面积变化分的方块边长与块级阈值 |
@@ -139,7 +157,7 @@
 | `cacheMaxEntries` | `200` | 10–100000 | 扫描缓存最多留几个文件，超了按最久没写过的淘汰 |
 
 
-> 已删除的参数：`perSheet`、`sparse`（单帧不再装箱）、`gridMode`（网格完全由密度决定）、`budgetPixels`（固定分辨率档位）、`maxWidth`（closeup 取原分辨率）、以及配置里的 `a`/`t`/`maxGap`/`multiCross`/`cutPair`/`maxSheets`（改由 preset 管，避免「写了却不生效」）。
+> 采样口径的六个键（`a`/`t`/`maxGap`/`multiCross`/`cutPair`/`maxSheets`）在配置里是**可选覆盖**：不写（`null`）就跟随预设，写了就以配置为准。工具参数里没有它们，所以模型改不了。
 
 ## 分批交付（一个视频切成很多交付单元）
 
@@ -155,13 +173,14 @@
 调用 `video_watch` 时**不传 `batch`** 就是第一批；返回里带一段：
 
 ```
-<batch index="1" total="7" size="10" sheets="64" from="0:00" to="0:10" next="2" done="false"/>
-<next>This is batch 1 of 7. Summarise it now, then call video_watch again with batch=2 ...</next>
+<batch index="1" total="7" size="10" sheets="64" from="0:00" to="0:10" next="2" batchDone="false" videoComplete="true"/>
+<next>This is batch 1 of 7. Summarise it now, then call video_watch again with planId="…" and batch=2 ...</next>
 ```
 
 - `total` = 这个视频一共几批；`next` = 下一批的编号（0 表示已是最后一批）
+- `batchDone` = 计划里最后一批；`videoComplete` = 整片是否都计划到了。**两者要分开读**：截断方案下 `batchDone=true` 而 `videoComplete=false`，正文会同时写清 `coveredTo` 与未看时长
 - 每批的张数由 `maxSheets` 决定（解析 10 / 理解 20）
-- 整片总量由 `maxTotalSheets` 卡（配置项，默认 100 张），超了按 `overflow` 处理
+- 整片总量在 plan 那一步就已经卡过了；watch 不再看 `maxTotalSheets`
 
 **必须按顺序、在同一个会话里逐批看。** 上下文连贯靠会话本身：前面几批的返回留在对话里，
 后面的批次才能接着理解。如果分批丢给子代理或换会话，连贯性就断了。
@@ -341,7 +360,7 @@ BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**
 - **扫描要解码全长**。90 分钟的片子第一次要跑几分钟，之后走缓存。
 - **`tile` 只按连续文件名读**。取帧有失败时脚本会把成功的重排成连续序列，清单写的是重排后的子图序号，时间码是真实的。
 - **淡入淡出的黑帧不再主动躲开**（0.3.1 会躲）。现在按窗口均匀重取，过渡里的黑帧是转场的一部分，躲掉反而看不到转场怎么做的。
-- **单帧不再打包**（0.5.0 起）。一帧一张图，所以长片安静段（每几秒一帧）的图数会比过去多得多，必须靠 `maxSheets` 和 `overflow` 兜住。
+- **单帧不再打包**（0.5.0 起）。一帧一张图，所以长片安静段（每几秒一帧）的图数会比过去多得多，靠 `maxTotalSheets` 与 plan 的预算闸门兜住。
 - **非 Windows 默认不烧字**。默认字体是 Windows 的 `consolab.ttf`；在 Linux / macOS 上这个文件不存在，插件会检测到并**自动关掉烧字**（不报错）。要烧字就自己给 `fontFile` 一个存在的字体路径。
 - **BGM 风格判断的验证面还很窄**。只测过合成鼓点（答"电子/四拍/无旋律"）与纯旁白（答"无音乐"）；真实配乐下的准确率未验证。
 - **本地语音会写错专有名词**。实测把 "GitHub" 转成 "gitopub"；时间戳是准的，字面不保证。
@@ -355,25 +374,29 @@ BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**
 | 文件 | 装什么 | 约行数 |
 |---|---|---|
 | `index.js` | 插件入口 + re-export | 63 |
-| `lib/config.js` | 配置归一化：夹取、解析外部命令、猜字体、定缓存目录 | 142 |
-| `lib/tools.js` | 三个工具的定义（**模型读到的描述与参数在这里**） | 370 |
-| `lib/orchestrate.js` | 扫描、预设、计划、取帧、拼图、交附件 | 496 |
-| `lib/render.js` | 返回值 → 内容块（纯函数，不碰 IO） | 96 |
+| `lib/presets.js` | 两套预设 + `effectiveArgs`（预设与配置的合成） | 57 |
+| `lib/config.js` | 配置归一化：夹取、解析外部命令、猜字体、定缓存目录 | 190 |
+| `lib/tools.js` | 三个工具的定义（**模型读到的描述与参数在这里**） | 537 |
+| `lib/orchestrate.js` | 探测、扫描、plan 初判/定稿、watch 执行、取帧拼图交附件 | 697 |
+| `lib/feasibility.js` | 预算闸门：`required` / `minimum` / 四个候选方案 / choice 解析 | 237 |
+| `lib/plans.js` | 计划快照：id 哈希、落盘、校验、淘汰 | 203 |
+| `lib/render.js` | 返回值 → 内容块（纯函数，不碰 IO） | 271 |
 | `lib/util.js` | 执行与渲染共用的小工具 | 311 |
-| `lib/plan.js` | 积分法采样计划（纯算法） | 597 |
+| `lib/plan.js` | 积分法采样计划 + `planFeasibility` / `fitDensity`（纯算法） | 735 |
 | `lib/scan.js` | raw RGB → 面积变化分 | 254 |
 | `lib/grid.js` | 网格与 token 计量 | 160 |
 | `lib/delivery.js` | 计划分组 → 交付分组、成本 | 65 |
-| `lib/cache.js` | 扫描缓存键与读写 | 80 |
+| `lib/cache.js` | 扫描缓存键与读写 | 126 |
 | `lib/ffmpeg.js` | ffmpeg / ffprobe 命令封装 | 451 |
 | `lib/time.js` | 时间码与字幕解析 | 231 |
+| `lib/audio.js` | 本地语音 + 云端 BGM 分析 | 699 |
 
 ## 开发
 
 ```bash
-npm test                               # 73 项：纯函数 + 工具契约 + 渲染
-node scripts/smoke.mjs [视频]          # 端到端：造测试片、跑三个工具、比交付形态
-node scripts/verify-agent-contract.mjs  # 用 Agent 自己的校验器验 schema
+npm test                               # 94 项：纯函数 + 预算闸门 + 工具契约 + 渲染
+node scripts/smoke.mjs [视频]          # 端到端：造测试片、走 plan→watch 两段、比交付形态
+node scripts/verify-agent-contract.mjs  # 用 Agent 自己的校验器验 schema（含"预算不足"形态）
 node scripts/verify-real-output.mjs    # 真跑三个工具，拿真实返回值过校验器
 ```
 

@@ -6,14 +6,17 @@
  * 多帧拼进一张小图省 token，看不清的再单独取回原图。
  *
  * 三个工具：
- *   - `video_plan`   只扫描不取图，告诉你这部片子会被怎么切（0 视觉 token）
- *   - `video_watch`  按计划交付拼图 + 时间码清单 + 字幕
+ *   - `video_plan`   扫描 + 判预算：完整看完够不够、要几张图；够了给 planId（0 视觉 token）
+ *   - `video_watch`  凭 planId 执行已批准的计划，按批交付拼图 + 时间码清单 + 字幕
  *   - `video_closeup` 按时间码取回全分辨率单帧
  *
- * 代码分五块，各自一个文件：
+ * 代码分几块，各自一个文件：
  *   - `lib/config.js`       配置归一化
+ *   - `lib/presets.js`      两套预设与 effectiveArgs
  *   - `lib/tools.js`        三个工具的定义（模型读到的描述与参数在这里）
- *   - `lib/orchestrate.js`  扫描、计划、取帧、拼图、交附件
+ *   - `lib/feasibility.js`  预算闸门：required / minimum / 四个候选方案
+ *   - `lib/plans.js`        计划快照：哈希、落盘、校验
+ *   - `lib/orchestrate.js`  探测、扫描、plan 初判与定稿、watch 执行
  *   - `lib/render.js`       返回值 → 内容块
  *   - `lib/util.js`         共用小工具
  *

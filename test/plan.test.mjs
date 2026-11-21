@@ -12,10 +12,12 @@ import {
   DEFAULT_A,
   densityMap,
   detectHardCuts,
+  fitDensity,
   gridFor,
   integrateMoments,
   noiseFloor,
   percentile,
+  planFeasibility,
   planFrames,
   windowsOf,
 } from '../lib/plan.js';
@@ -179,11 +181,39 @@ test('overflow: stop —— 看到上限就停，不抬阈值也不覆盖全片'
   assert.equal(stop.stats.scale, 1, 'stop 不该抬阈值');
 });
 
-test('maxGap 比 maxSheets 更硬时如实标注预算被抬高', () => {
+test('maxGap 比预算更硬时如实标注预算被抬高', () => {
   // 100 秒 / 每 5 秒补一帧 = 20 张单帧（装箱后 1 张），预算 1 张图会被补帧下限顶破
   const plan = planFrames({ duration: 100, scanFps: FPS, area: flat(100, 0), a: 0.3, maxGap: 5, maxTotalSheets: 1,  });
   assert.equal(plan.stats.budgetRaised, true);
   assert.ok(plan.stats.sheets >= 1, '补帧下限优先于预算');
+});
+
+test('thin 变稀不破坏 maxGap，也不再"隔一张丢一张"', () => {
+  // 全程高速运动 + 小预算：旧实现会把补帧点一起丢，间隔从 5 秒变成 8 秒以上。
+  const area = flat(120, 0.6);
+  const plan = planFrames({ duration: 120, scanFps: FPS, area, a: 0.3, t: 1, maxGap: 5, maxTotalSheets: 20, overflow: 'thin' });
+  assert.equal(plan.stats.thinned, true, '预算应逼出一次变稀');
+  assert.equal(plan.stats.truncated, false, 'thin 仍然覆盖全片');
+  assert.ok(
+    plan.stats.maxInterval <= plan.stats.maxGap + plan.stats.t + 1e-6,
+    `最大空洞 ${plan.stats.maxInterval.toFixed(2)}s 超过 maxGap+窗口余量`,
+  );
+  assert.equal(plan.stats.maxGapBroken, false);
+});
+
+test('没截断时 coveredTo 就是窗口终点，不谎报"只看到一半"', () => {
+  const plan = planFrames({ duration: 60, scanFps: FPS, area: flat(60, 0.6), a: 0.3, t: 1, maxGap: 5, maxTotalSheets: 200 });
+  assert.equal(plan.stats.truncated, false);
+  assert.equal(plan.stats.coveredTo, 60);
+  assert.equal(plan.stats.unseenSeconds, 0);
+});
+
+test('stop 截断时 coveredTo 与 unseenSeconds 对得上', () => {
+  const plan = planFrames({ duration: 60, scanFps: FPS, area: flat(60, 0.6), a: 0.3, t: 1, maxGap: 0, maxTotalSheets: 3, overflow: 'stop' });
+  assert.equal(plan.stats.truncated, true);
+  assert.ok(plan.stats.coveredTo < 60, `截断后应提前结束，实际 ${plan.stats.coveredTo}`);
+  assert.ok(Math.abs(plan.stats.unseenSeconds - (60 - plan.stats.coveredTo)) < 1e-6, 'unseen 必须等于剩余时长');
+  assert.ok(plan.stats.maxInterval <= plan.stats.coveredTo + 1e-6, '截断后的间隔不该算上没看的尾巴');
 });
 
 test('密秒用 2x2 并让四格时间间隔严格相等', () => {
@@ -258,4 +288,30 @@ test('densityMap 覆盖所有格子并遵守段数上限', () => {
   const total = runs.reduce((sum, run) => sum + run.count, 0);
   assert.equal(total, plan.frames.length, '分段计数必须正好覆盖所有格子');
   assert.ok(densityMap(plan.groups, { maxRuns: 2 }).length <= 2);
+});
+
+test('planFeasibility 用预设密度判"够不够"：能变稀塞进去也算不够', () => {
+  const area = flat(60, 0.6);
+  const base = { duration: 60, scanFps: FPS, area, a: 0.3, t: 1, maxGap: 5 };
+  const roomy = planFeasibility({ ...base, maxTotalSheets: 500 });
+  assert.equal(roomy.feasible, true, '预算 500 应该够');
+  assert.ok(roomy.required <= 500);
+  assert.ok(roomy.minimum <= roomy.required, '下限不可能高于完整需求');
+
+  const tight = planFeasibility({ ...base, maxTotalSheets: 5 });
+  assert.equal(tight.feasible, false, '预算 5 不够时不能因为"能变稀"就说够');
+  assert.ok(tight.required > 5, `required ${tight.required} 应大于 5`);
+  assert.ok(tight.truncate !== null && tight.truncate.stats.coveredTo < 60, '截断方案要真的少看');
+  assert.ok(tight.density !== null && tight.density.plan.stats.sheets <= 5, '密度方案要真的进预算');
+  assert.equal(tight.density.plan.stats.videoComplete, true, '密度方案覆盖全片');
+});
+
+test('fitDensity 在补帧下限顶破预算时抬 t，而不是硬塞', () => {
+  // 100 秒 / 每 5 秒补一帧 = 下限约 20 张；预算 8 只能靠放宽窗口把补帧点并进同一张图。
+  const area = flat(100, 0);
+  const fitted = fitDensity({ duration: 100, scanFps: FPS, area, a: 0.3, t: 1, maxGap: 5, maxTotalSheets: 8 });
+  assert.ok(fitted !== null, '应当能找到进预算的密度');
+  assert.ok(fitted.plan.stats.sheets <= 8, `张数 ${fitted.plan.stats.sheets} 超预算`);
+  assert.ok(fitted.t > 1, `t 应被抬高，实际 ${fitted.t}`);
+  assert.equal(fitted.plan.stats.videoComplete, true);
 });

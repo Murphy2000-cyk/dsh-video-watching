@@ -155,7 +155,15 @@ async function verify(toolName, args) {
 }
 
 const plan = await verify('video_plan', { input: video, preset: 'understand', userConfirmed: true });
-const watch = await verify('video_watch', { input: video, preset: 'understand', userConfirmed: true });
+let planId = plan?.planId;
+let committedPlan = plan;
+if (plan !== null && typeof planId !== 'string') {
+  // 预算不够时 plan 只给选项；这里走"截断"这条定稿路径，顺带验它。
+  committedPlan = await verify('video_plan', { input: video, preset: 'understand', userConfirmed: true, choice: { id: 'truncate' } });
+  planId = committedPlan?.planId;
+  check('预算不够时 choice=truncate 能定稿', typeof planId === 'string');
+}
+const watch = await verify('video_watch', { input: video, planId, batch: 1 });
 const closeup = await verify('video_closeup', { input: video, times: [1.5, '00:04'] });
 
 // 语义不变量：每张图片都顶到 384 token 天花板，所以总 token 必须等于张数 × 384。
@@ -165,8 +173,9 @@ if (watch !== null) {
   check('每张图 token 都是 384', watch.sheets.every((sheet) => sheet.tokens === 384), watch.sheets.map((sheet) => sheet.tokens).join(','));
   check('子图都能归到某张图片的格位', watch.frames.every((frame) => frame.sheet >= 1 && frame.sheet <= watch.sheets.length && frame.cell >= 1));
 }
-if (plan !== null) {
-  check('plan 与 watch 的图片张数一致', plan.estimate.sheets === (watch?.estimate.sheets ?? -1), `${plan.estimate.sheets} / ${watch?.estimate.sheets}`);
+if (committedPlan !== null) {
+  check('plan 与 watch 的图片张数一致', committedPlan.estimate.sheets === (watch?.estimate.sheets ?? -1), `${committedPlan.estimate.sheets} / ${watch?.estimate.sheets}`);
+  check('plan 带预算块', committedPlan.budget !== undefined && typeof committedPlan.budget.required === 'number', `required=${committedPlan.budget?.required}`);
 }
 if (closeup !== null) {
   check('closeup 取回两帧', closeup.frames.length === 2, `${closeup.frames.length}`);

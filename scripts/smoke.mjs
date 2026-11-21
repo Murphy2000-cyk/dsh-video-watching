@@ -161,44 +161,57 @@ async function buildFixture() {
  */
 async function compareModes(buildWith, input, label) {
   const cases = [
-    { name: '默认（跟随预设）', cfg: {} },
-    { name: '总量 3 张', cfg: { maxTotalSheets: 3 } },
-    { name: 'stop 截断', cfg: { maxTotalSheets: 3, overflow: 'stop' } },
-    { name: 'cutPair 开', cfg: { cutPair: true } },
-    { name: 'multiCross 关', cfg: { multiCross: false } },
-    { name: 'a=1.5 省 token', cfg: { a: 1.5 } },
+    { name: '默认（跟随预设）', cfg: {}, preset: 'analysis' },
+    { name: '预算 3 → 截断', cfg: { maxTotalSheets: 3 }, preset: 'analysis', choice: { id: 'truncate' } },
+    { name: '预算 3 → 密度', cfg: { maxTotalSheets: 3 }, preset: 'analysis', choice: { id: 'density' } },
+    { name: '换 understand', cfg: {}, preset: 'analysis', choice: { id: 'understand' } },
+    { name: 'cutPair 开', cfg: { cutPair: true }, preset: 'analysis' },
+    { name: 'multiCross 关', cfg: { multiCross: false }, preset: 'analysis' },
+    { name: 'a=1.5 省 token', cfg: { a: 1.5 }, preset: 'analysis' },
   ];
   const rows = [];
   for (const item of cases) {
-    // 这一组比的是**密度**，所以把总量放开（40 张对一个 24 秒片等于不设限）；
-    // 总量上限是配置项，所以按用例换一套工具（模型侧改不了它）。
-    const scoped = buildWith({ maxTotalSheets: item.cfg?.maxTotalSheets ?? 40, ...item.cfg });
-    const watch = await scoped.video_watch.execute({ input, preset: 'analysis', userConfirmed: true }, { signal: undefined });
+    const scoped = buildWith({ maxTotalSheets: 40, ...item.cfg });
+    const args = { input, preset: item.preset, userConfirmed: true };
+    if (item.choice !== undefined) args.choice = item.choice;
+    const planned = await scoped.video_plan.execute(args, { signal: undefined });
+    const ok = typeof planned.planId === 'string';
+    check(`${label}：${item.name} 能定稿`, ok, ok ? planned.planId : `选项=${(planned.options ?? []).map((option) => option.id).join('/')}`);
+    if (!ok) continue;
+    const watch = await scoped.video_watch.execute({ input, planId: planned.planId, batch: 1 }, { signal: undefined });
     rows.push({
       mode: item.name,
-      frames: watch.frames.length,
-      sheets: watch.sheets.length,
-      singles: watch.plan.singles ?? 0,
-      cutPairs: watch.plan.cutPairs ?? 0,
-      truncated: watch.plan.truncated,
+      frames: watch.plan.count,
+      sheets: watch.plan.sheets,
+      batches: watch.plan.batches,
+      coverage: watch.plan.videoComplete ? 'full' : `to ${watch.plan.coveredTo.toFixed(1)}s`,
       tokens: watch.estimate.tokens,
+      cuts: watch.plan.cutPairs,
     });
   }
-  console.log('  ' + '形态'.padEnd(16) + '帧'.padStart(4) + '图'.padStart(4) + '单帧'.padStart(6) + '切点'.padStart(6) + 'token'.padStart(8));
+  console.log(
+    '  ' + '形态'.padEnd(18) + '帧'.padStart(4) + '图'.padStart(4) + '批'.padStart(4) + '  覆盖'.padEnd(10) + 'token'.padStart(8),
+  );
   for (const row of rows) {
     console.log(
-      '  ' + row.mode.padEnd(16) + String(row.frames).padStart(4) + String(row.sheets).padStart(4) +
-        String(row.singles).padStart(6) + String(row.cutPairs).padStart(6) + String(row.tokens).padStart(8),
+      '  ' + row.mode.padEnd(18) + String(row.frames).padStart(4) + String(row.sheets).padStart(4) + String(row.batches).padStart(4) +
+        '  ' + row.coverage.padEnd(9) + String(row.tokens).padStart(8),
     );
   }
-  const [auto, few, stop, cut, multi, cheap] = rows;
-  check(label + '：总量上限收紧后图数明显减少', few.sheets < auto.sheets, auto.sheets + ' -> ' + few.sheets + ' 张');
-  check(label + '：overflow stop 会提前结束', stop.truncated === true, 'truncated=' + stop.truncated);
-  check(label + '：overflow thin 不截断', auto.truncated === false, 'truncated=' + auto.truncated);
-  // cutPair 只对"单间隔硬切"生效，测试片里有 8 次硬切。
-  check(label + '：cutPair 打开后硬切取前后两帧', cut.cutPairs >= 1, 'cutPairs=' + cut.cutPairs);
-  check(label + '：multiCross 关闭后不会更密', multi.frames <= auto.frames, auto.frames + ' -> ' + multi.frames);
-  check(label + '：a=1.5 显著省帧', cheap.frames < auto.frames, auto.frames + ' -> ' + cheap.frames + ' 格');
+  const byMode = Object.fromEntries(rows.map((row) => [row.mode, row]));
+  const auto = byMode['默认（跟随预设）'];
+  const truncate = byMode['预算 3 → 截断'];
+  const density = byMode['预算 3 → 密度'];
+  const understand = byMode['换 understand'];
+  const cut = byMode['cutPair 开'];
+  const multi = byMode['multiCross 关'];
+  const cheap = byMode['a=1.5 省 token'];
+  if (truncate !== undefined) check(label + '：截断方案真的少看图', truncate.coverage !== 'full', truncate.coverage);
+  if (density !== undefined) check(label + '：密度方案覆盖全片且不超预算', density.coverage === 'full' && density.sheets <= 3, `${density.coverage} / ${density.sheets} 张`);
+  if (understand !== undefined && auto !== undefined) check(label + '：换 understand 更省', understand.sheets < auto.sheets, `${auto.sheets} -> ${understand.sheets} 张`);
+  if (cut !== undefined) check(label + '：cutPair 打开后硬切取前后两帧', cut.cuts >= 1, 'cutPairs=' + cut.cuts);
+  if (multi !== undefined && auto !== undefined) check(label + '：multiCross 关闭后不会更密', multi.frames <= auto.frames, auto.frames + ' -> ' + multi.frames);
+  if (cheap !== undefined && auto !== undefined) check(label + '：a=1.5 显著省帧', cheap.frames < auto.frames, auto.frames + ' -> ' + cheap.frames + ' 格');
 }
 
 const results = [];
@@ -236,6 +249,8 @@ const byName = buildWith({});
   const planText = byName.video_plan.output.render({}, plan)[0].text;
   console.log(planText);
   await writeFile(join(OUT, 'plan.txt'), planText, 'utf8');
+  check('预算够时 plan 给出 planId', typeof plan.planId === 'string', plan.planId ?? '(无)');
+  check('预算块说明了够不够', plan.budget?.feasible === true, `required=${plan.budget?.required} max=${plan.budget?.max}`);
 
   const windowOf = (from, to) => buildWith({ maxTotalSheets: 8 }).video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true, from, to }, { signal: undefined });
   const stillPlan = await windowOf(0, 7.5);
@@ -252,11 +267,44 @@ const byName = buildWith({});
   check('快剪段认出至少 7 次硬切', cutPlan.plan.cuts >= 7, `cuts=${cutPlan.plan.cuts}`);
   check('变化量按窗口记账', cutPlan.plan.totalChange > stillPlan.plan.totalChange, `${stillPlan.plan.totalChange} -> ${cutPlan.plan.totalChange}`);
 
-  console.log('\n--- video_watch ---');
-  const watch = await buildWith({ maxTotalSheets: 4 }).video_watch.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
+  console.log('\n--- 预算闸门 ---');
+  try {
+    await byName.video_watch.execute({ input: video }, { signal: undefined });
+    check('没有 planId 的 watch 会被拒', false, '居然执行了');
+  } catch (error) {
+    check('没有 planId 的 watch 会被拒', /planId/.test(String(error?.message ?? error)), '已拒绝');
+  }
+
+  const tight = buildWith({ maxTotalSheets: 4 });
+  const refused = await tight.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
+  check(
+    '预算不够时 plan 不给 planId、只给选项',
+    refused.planId === undefined && (refused.options ?? []).length >= 3,
+    `required=${refused.budget?.required} max=${refused.budget?.max} options=${(refused.options ?? []).map((item) => item.id).join('/')}`,
+  );
+  const blockedText = byName.video_plan.output.render({}, refused)[0].text;
+  check('预算不够的正文明确禁止先 watch', /Do NOT call video_watch yet/.test(blockedText), 'ok');
+
+  const truncatedPlan = await tight.video_plan.execute(
+    { input: video, preset: 'analysis', userConfirmed: true, choice: { id: 'truncate' } },
+    { signal: undefined },
+  );
+  check('选截断后可以定稿', typeof truncatedPlan.planId === 'string', truncatedPlan.planId ?? '(无)');
+
+  console.log('\n--- video_watch（截断计划）---');
+  const watch = await tight.video_watch.execute({ input: video, planId: truncatedPlan.planId, batch: 1 }, { signal: undefined });
   const blocks = byName.video_watch.output.render({}, watch);
   console.log(blocks[0].text);
   await writeFile(join(OUT, 'watch.txt'), blocks[0].text, 'utf8');
+  check('截断计划：videoComplete=false 并写进正文', watch.plan.videoComplete === false && /videoComplete="false"/.test(blocks[0].text), `coveredTo=${watch.plan.coveredTo}`);
+  check('batchDone 与 videoComplete 分开表达', typeof watch.batch.batchDone === 'boolean' && watch.batch.batchDone === true && watch.plan.videoComplete === false, 'ok');
+
+  // 关键不变量：预算只在 plan 那一步参与决策，watch 不再读它。
+  const loose = buildWith({ maxTotalSheets: 100 });
+  const loosePlan = await loose.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
+  const strict = buildWith({ maxTotalSheets: 2 });
+  const stillRuns = await strict.video_watch.execute({ input: video, planId: loosePlan.planId, batch: 1 }, { signal: undefined });
+  check('watch 不再读 maxTotalSheets：配置改成 2 也能执行已定稿的计划', stillRuns.sheets.length > 2, `${stillRuns.sheets.length} 张`);
 
   const images = blocks.filter((block) => block.type === 'image');
   check('交付了图块', images.length === watch.sheets.length, `${watch.sheets.length} 张`);
@@ -320,14 +368,15 @@ const byName = buildWith({});
     'utf8',
   );
   // 字幕现在按**本批**裁剪，所以要像真模型那样把每一批都取一遍再合并。
+  const subtitlePlan = await byName.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
   const batches = [];
   for (let index = 1; index <= 40; index += 1) {
     const value = await byName.video_watch.execute(
-      { input: video, preset: 'analysis', userConfirmed: true, transcriptFile: srtPath, batch: index },
+      { input: video, planId: subtitlePlan.planId, transcriptFile: srtPath, batch: index },
       { signal: undefined },
     );
     batches.push(value);
-    if (value.batch.done) break;
+    if (value.batch.batchDone) break;
   }
   const allLines = batches.flatMap((value) => value.transcript.lines);
   const firstBatchText = byName.video_watch.output.render({}, batches[0])[0].text;

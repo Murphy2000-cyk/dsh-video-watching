@@ -4,7 +4,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 
 import { buildTools, resolveConfig } from '../index.js';
 import { createRunner } from '../lib/ffmpeg.js';
@@ -28,31 +28,58 @@ const cfg = resolveConfig({});
 const run = createRunner((spec) => spawnStub(spec), { graceMs: 2000, timeoutMs: 60000 });
 const attachments = { async saveImages(items) { return items.map((item, index) => ({ attachmentId: 'gate-' + index, mediaType: item.mediaType, bytes: item.data.length, width: 640, height: 360 })); } };
 const ctx = { subprocess: { spawn: spawnStub }, get: (name) => (name === 'attachments' ? attachments : undefined), tools: { register: () => () => {} } };
-const watch = buildTools({ ctx, run, cfg }).find((tool) => tool.name === 'video_watch');
+const tools = buildTools({ ctx, run, cfg });
+const planTool = tools.find((tool) => tool.name === 'video_plan');
+const watch = tools.find((tool) => tool.name === 'video_watch');
 
 const lines = [];
-const started = Date.now();
+
+// 门禁 1：plan 没带 userConfirmed，一步都不该走。
+let started = Date.now();
 try {
-  await watch.execute({ input: VIDEO, preset: 'analysis' }, { signal: undefined });
-  lines.push('FAIL：没带 userConfirmed 也被执行了，门禁没生效');
+  await planTool.execute({ input: VIDEO, preset: 'analysis' }, { signal: undefined });
+  lines.push('FAIL：plan 没带 userConfirmed 也被执行了，模式门禁没生效');
 } catch (error) {
-  lines.push(`PASS：被拒绝（${Date.now() - started} ms）`);
+  lines.push(`PASS：plan 缺 userConfirmed 被拒绝（${Date.now() - started} ms）`);
   lines.push(`  报错原文：${String(error?.message ?? error).slice(0, 300)}`);
 }
 
-// 再确认带上了就能过（这里只验证门禁放行，不看结果内容）
-let allowed = false;
+// 门禁 2：watch 没有 planId，等于没问过模式、没论证过预算。
+started = Date.now();
 try {
-  const value = await watch.execute({ input: VIDEO, preset: 'understand', userConfirmed: true }, { signal: undefined });
-  allowed = value !== undefined && value.audio !== undefined;
-  lines.push(`PASS：带 userConfirmed: true 后放行，返回图 ${value?.sheets?.length ?? 0} 张、音频状态 ${value?.audio?.status ?? 'n/a'}`);
+  await watch.execute({ input: VIDEO }, { signal: undefined });
+  lines.push('FAIL：watch 没有 planId 也被执行了');
 } catch (error) {
-  lines.push(`FAIL：带上 userConfirmed 后仍失败：${String(error?.message ?? error).slice(0, 200)}`);
+  lines.push(`PASS：watch 缺 planId 被拒绝（${Date.now() - started} ms）`);
 }
 
-lines.push(`参数清单：${JSON.stringify(Object.keys(watch.parameters.properties))}`);
-lines.push(`必填：${JSON.stringify(watch.parameters.required)}`);
+// 放行路径：先定稿（预算不够时按截断），再执行。
+const planned = await planTool.execute({ input: VIDEO, preset: 'understand', userConfirmed: true }, { signal: undefined });
+let planId = planned.planId;
+if (typeof planId !== 'string') {
+  const committed = await planTool.execute(
+    { input: VIDEO, preset: 'understand', userConfirmed: true, choice: { id: 'truncate' } },
+    { signal: undefined },
+  );
+  planId = committed.planId;
+  lines.push('（预算不够全片，放行路径按 truncate 定稿）');
+}
 
-await writeFile('F:/Agent/DeepseekHarness/Project/Project20261119/gate-check.txt', lines.join('\n') + '\n', 'utf8');
+let allowed = false;
+try {
+  const value = await watch.execute({ input: VIDEO, planId, batch: 1 }, { signal: undefined });
+  allowed = value !== undefined && value.audio !== undefined;
+  lines.push(`PASS：带 planId 后放行，返回图 ${value?.sheets?.length ?? 0} 张、音频状态 ${value?.audio?.status ?? 'n/a'}`);
+} catch (error) {
+  lines.push(`FAIL：带 planId 后仍失败：${String(error?.message ?? error).slice(0, 200)}`);
+}
+
+lines.push(`plan 参数：${JSON.stringify(Object.keys(planTool.parameters.properties))}`);
+lines.push(`plan 必填：${JSON.stringify(planTool.parameters.required)}`);
+lines.push(`watch 参数：${JSON.stringify(Object.keys(watch.parameters.properties))}`);
+lines.push(`watch 必填：${JSON.stringify(watch.parameters.required)}`);
+
+await mkdir('F:/Agent/DeepseekHarness/Project/Project20261121', { recursive: true });
+await writeFile('F:/Agent/DeepseekHarness/Project/Project20261121/gate-check.txt', lines.join('\n') + '\n', 'utf8');
 console.log(lines.join('\n'));
 if (!allowed) process.exitCode = 1;
