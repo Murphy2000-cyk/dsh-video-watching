@@ -82,6 +82,7 @@ test('renderWatch 把"第几格 = 第几秒"写进正文', () => {
   assert.match(blocks[0].text, /cell 1 = 0:00\.000/);
   assert.match(blocks[0].text, /cell 2 = 0:01\.500/);
   assert.match(blocks[0].text, /\[0:00\.500\] 开场/);
+  assert.match(blocks[0].text, /<sampling /);
   assert.equal(blocks.filter((block) => block.type === 'image').length, 1);
 });
 
@@ -90,6 +91,10 @@ test('renderPlan 不产出任何图片', () => {
   assert.equal(blocks.length, 1);
   assert.equal(blocks[0].type, 'text');
   assert.match(blocks[0].text, /video-plan/);
+  // 采样口径不在工具参数里，只能靠这一行让模型知道这次按什么在跑
+  assert.match(blocks[0].text, /<sampling a="0\.3"/);
+  assert.match(blocks[0].text, /maxSheets="10"/);
+  assert.match(blocks[0].text, /mode="analysis"/);
 });
 
 test('截断写进正文：模型不会把 batchDone=true 读成"整片看完了"', () => {

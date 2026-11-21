@@ -1,6 +1,6 @@
 # 看视频插件 · 架构与运行流程
 
-> 插件 id：`video-watching`　包名：`dsh-video-watching`　入口：`index.js`　版本：0.9.0
+> 插件 id：`video-watching`　包名：`dsh-video-watching`　入口：`index.js`　版本：0.9.1
 > 本文描述**当前实现**。凡写"现在"的地方都与代码一致。
 
 ---

@@ -1,6 +1,17 @@
 # 变更记录
 
-版本号遵循 `package.json` 里的 `version`，GitHub Release 的 tag 与之一一对应（`v0.9.0`）。
+版本号遵循 `package.json` 里的 `version`，GitHub Release 的 tag 与之一一对应（`v0.9.1`）。
+
+## 0.9.1 —— 2026-11-21
+
+**参数可查：新增《参数手册》，并在返回值里回显“这次按什么口径跑”。**
+
+起因：采样参数（`a`/`t`/`maxGap`/`multiCross`/`cutPair`/`maxSheets`）本来就不在工具 schema 里，模型运行时既看不到也改不了；而文档每条只有半句话，结果另一台机器上的 agent 把 `a` 读成了“每秒多少张缩略图”，据此估出来的张数是错的。
+
+- 新增 `参数手册.md`：31 个配置项逐个写清**定义（含单位）/ 默认 / 范围 / 影响什么 / 什么时候该调 / 调错会怎样 / 和谁联动 / 能不能被工具参数覆盖**。原来 README 的表只有“参数 / 默认 / 作用”三栏。
+- `video_plan` 与 `video_watch` 的返回新增 `<sampling .../>` 一行，回显 `a` / `aEff` / `t` / `maxGap` / `multiCross` / `cutPair` / `maxSheets` / `mode` / `scale`，并说明“这些不受工具参数控制，配置可覆盖”。模型从此能看见生效口径，不必猜 `mean="13.7/s"` 是怎么来的。
+- `video_plan` 的描述补一句：sampling 那一行是唯一能看到生效口径的地方。
+- README、使用手册的配置段挂上参数手册链接；`package.json` 的 `files` 补上 `参数手册.md` 与 `CHANGELOG.md`。
 
 ## 0.9.0 —— 2026-11-21
 
