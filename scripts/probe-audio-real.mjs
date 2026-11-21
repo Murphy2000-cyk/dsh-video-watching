@@ -14,7 +14,8 @@ import { pathToFileURL } from 'node:url';
 import { buildTools, resolveConfig } from '../index.js';
 import { createRunner } from '../lib/ffmpeg.js';
 
-const VIDEO = 'F:/Agent/DeepseekHarness/Interaction/20261104_litsearch_v220_视频/literature-search_2.2.0_介绍.mp4';
+// 视频路径：命令行第一个参数优先，没给就用本机这支讲解片当默认样例。
+const VIDEO = process.argv[2] ?? 'F:/Agent/DeepseekHarness/Interaction/20261104_litsearch_v220_视频/literature-search_2.2.0_介绍.mp4';
 const DSH_SHERPA = 'C:/Users/lenovo/AppData/Roaming/npm/node_modules/@deepseek-ai/dsh/node_modules/sherpa-onnx-node';
 
 function spawnStub(spec) {
@@ -86,7 +87,7 @@ const lines = [
   ...audio.speech.lines.slice(0, 6).map((line) => `  [${line.start.toFixed(2)}-${line.end.toFixed(2)}] ${line.text}`),
   '',
   `BGM：status=${audio.bgm.status} model=${audio.bgm.model} 片数=${audio.bgm.chunks} 抽样=${audio.bgm.sampled}`,
-  `  音乐=${audio.bgm.music} 风格=${audio.bgm.style} 速度=${audio.bgm.tempo} 情绪=${audio.bgm.mood}`,
+  `  音乐=${audio.bgm.music} 风格=${audio.bgm.style} 速度=${audio.bgm.tempo} 情绪=${audio.bgm.musicMood}`,
   `  特征=${audio.bgm.characteristics}`,
   `  检索词=${audio.bgm.searchWords.join(', ')}`,
   `  变化点=${audio.bgm.changes.map((change) => `${change.at}s ${change.from}→${change.to}`).join(' | ') || '无'}`,
