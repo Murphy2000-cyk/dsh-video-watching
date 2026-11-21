@@ -155,7 +155,7 @@ async function verify(toolName, args) {
 }
 
 const plan = await verify('video_plan', { input: video, preset: 'understand' });
-const watch = await verify('video_watch', { input: video, preset: 'understand' });
+const watch = await verify('video_watch', { input: video, preset: 'understand', userConfirmed: true });
 const closeup = await verify('video_closeup', { input: video, times: [1.5, '00:04'] });
 
 // 语义不变量：每张图片都顶到 384 token 天花板，所以总 token 必须等于张数 × 384。
