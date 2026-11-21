@@ -112,9 +112,9 @@ test('配置能整体缺省，也有边界收口', () => {
   assert.equal(defaults.scanFps, 10);
   assert.equal(defaults.longSide, 120);
   assert.equal(defaults.block, 4);
-  // 采样参数由 preset 唯一决定，配置里不该再有这些键
+  // 采样口径允许在配置里覆盖，但默认必须是 null（= 跟随预设），不能被静默写死
   for (const key of ['a', 't', 'maxGap', 'multiCross', 'cutPair', 'maxSheets']) {
-    assert.equal(defaults[key], undefined, key + ' 不应出现在配置里');
+    assert.equal(defaults[key], null, key + ' 默认应为 null（跟随预设）');
   }
   const wild = resolveConfig({ scanFps: 999, quality: 99, longSide: 9999, block: 999 });
   assert.ok(wild.scanFps <= 30);
@@ -161,10 +161,17 @@ test('两种预设：解析更密、理解更省，显式参数压过预设', ()
   assert.equal(analysis.cutPair, false);
   assert.equal(understand.cutPair, false);
 
-  // 显式传参压过预设
-  const overridden = effectiveArgs({ preset: 'understand', a: 0.3 }, cfg);
-  assert.equal(overridden.a, 0.3);
-  assert.equal(overridden.maxGap, 6, '没传的项仍走预设');
+  // 配置能覆盖预设（用户改配置 = 用户改参数）
+  const configured = effectiveArgs({ preset: 'understand' }, { ...cfg, a: 0.3, maxSheets: 4 });
+  assert.equal(configured.a, 0.3, '配置里的 a 覆盖预设');
+  assert.equal(configured.maxSheets, 4, '配置里的 maxSheets 覆盖预设');
+  assert.equal(configured.maxGap, 6, '配置没写的仍走预设');
+
+  // 工具参数不再能覆盖采样口径（模型没有这个口子）
+  const viaArgs = effectiveArgs({ preset: 'understand', a: 0.05, maxSheets: 99, maxGap: 0 }, cfg);
+  assert.equal(viaArgs.a, 1, 'args 里的 a 被忽略');
+  assert.equal(viaArgs.maxSheets, 20, 'args 里的 maxSheets 被忽略');
+  assert.equal(viaArgs.maxGap, 6, 'args 里的 maxGap 被忽略');
 
   // 非法 preset 退回解析（不报错，但也绝不该由模型瞎传）
   assert.equal(effectiveArgs({ preset: 'nonsense' }, cfg).a, PRESETS.analysis.a);

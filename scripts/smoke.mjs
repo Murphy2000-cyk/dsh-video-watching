@@ -161,22 +161,19 @@ async function buildFixture() {
  */
 async function compareModes(buildWith, input, label) {
   const cases = [
-    { name: '默认 a=0.3', args: {} },
-    { name: '总量 3 张', cfg: { maxTotalSheets: 3 }, args: { maxGap: 0 } },
-    { name: 'stop 截断', cfg: { maxTotalSheets: 3 }, args: { maxGap: 0, overflow: 'stop' } },
-    { name: 'cutPair 开', args: { cutPair: true } },
-    { name: 'multiCross 关', args: { multiCross: false } },
-    { name: 'a=1.5 省 token', args: { a: 1.5 } },
+    { name: '默认（跟随预设）', cfg: {} },
+    { name: '总量 3 张', cfg: { maxTotalSheets: 3 } },
+    { name: 'stop 截断', cfg: { maxTotalSheets: 3, overflow: 'stop' } },
+    { name: 'cutPair 开', cfg: { cutPair: true } },
+    { name: 'multiCross 关', cfg: { multiCross: false } },
+    { name: 'a=1.5 省 token', cfg: { a: 1.5 } },
   ];
   const rows = [];
   for (const item of cases) {
     // 这一组比的是**密度**，所以把总量放开（40 张对一个 24 秒片等于不设限）；
     // 总量上限是配置项，所以按用例换一套工具（模型侧改不了它）。
-    const scoped = buildWith({ maxTotalSheets: item.cfg?.maxTotalSheets ?? 40 });
-    const watch = await scoped.video_watch.execute(
-      { input, preset: 'analysis', userConfirmed: true, ...item.args },
-      { signal: undefined },
-    );
+    const scoped = buildWith({ maxTotalSheets: item.cfg?.maxTotalSheets ?? 40, ...item.cfg });
+    const watch = await scoped.video_watch.execute({ input, preset: 'analysis', userConfirmed: true }, { signal: undefined });
     rows.push({
       mode: item.name,
       frames: watch.frames.length,

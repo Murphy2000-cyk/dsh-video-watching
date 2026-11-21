@@ -43,7 +43,7 @@ try {
 // 再确认带上了就能过（这里只验证门禁放行，不看结果内容）
 let allowed = false;
 try {
-  const value = await watch.execute({ input: VIDEO, preset: 'understand', userConfirmed: true, maxSheets: 2 }, { signal: undefined });
+  const value = await watch.execute({ input: VIDEO, preset: 'understand', userConfirmed: true }, { signal: undefined });
   allowed = value !== undefined && value.audio !== undefined;
   lines.push(`PASS：带 userConfirmed: true 后放行，返回图 ${value?.sheets?.length ?? 0} 张、音频状态 ${value?.audio?.status ?? 'n/a'}`);
 } catch (error) {

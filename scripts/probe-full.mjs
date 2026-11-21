@@ -89,7 +89,7 @@ say(byName.video_plan.output.render({}, plan)[0].text);
 
 // ---- 2. video_watch ----
 started = Date.now();
-const watch = await byName.video_watch.execute({ input: VIDEO, preset: PRESET, maxSheets: MAX_SHEETS, userConfirmed: true }, { signal: undefined });
+const watch = await byName.video_watch.execute({ input: VIDEO, preset: PRESET, userConfirmed: true }, { signal: undefined });
 const watchSeconds = ((Date.now() - started) / 1000).toFixed(1);
 say('');
 say(`=== video_watch（${watchSeconds} s）===`);

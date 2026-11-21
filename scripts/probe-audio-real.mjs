@@ -74,7 +74,7 @@ const tools = buildTools({ ctx, run, cfg });
 const watch = tools.find((tool) => tool.name === 'video_watch');
 
 const started = Date.now();
-const value = await watch.execute({ input: VIDEO, preset: 'understand', maxSheets: 2, userConfirmed: true }, { signal: undefined });
+const value = await watch.execute({ input: VIDEO, preset: 'understand', userConfirmed: true }, { signal: undefined });
 const seconds = ((Date.now() - started) / 1000).toFixed(1);
 
 const audio = value.audio;
