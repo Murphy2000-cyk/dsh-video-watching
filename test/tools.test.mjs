@@ -285,6 +285,9 @@ test('观看记录默认开、默认写桌面，也可以整体关掉', () => {
   const defaults = resolveConfig({});
   assert.equal(defaults.record, true);
   assert.match(defaults.recordDir, /Desktop$/);
+  // 默认要求逐批写：下一批要等上一批的分析落盘
+  assert.equal(defaults.requireNote, true);
+  assert.equal(resolveConfig({ requireNote: false }).requireNote, false);
   assert.equal(resolveConfig({ record: false }).record, false);
   assert.equal(resolveConfig({ record: 'false' }).record, true, '只认真正的 false，字符串不关');
   assert.equal(resolveConfig({ recordDir: 'F:/记录' }).recordDir, 'F:/记录');

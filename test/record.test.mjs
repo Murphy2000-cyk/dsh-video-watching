@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { appendBatch, ensureHeader, recordPathOf, writeAnalysis } from '../index.js';
+import { appendBatch, ensureHeader, pendingNotes, recordPathOf, writeAnalysis } from '../index.js';
 
 const PLAN_ID = '0123456789abcdef';
 
@@ -169,6 +169,40 @@ test('record: false 时既不写文档，也不允许写分析', async () => {
     const batch = await appendBatch({ cfg, input: 'C:/media/video.mp4', planId: PLAN_ID, batch: { index: 1, total: 1, from: 0, to: 1 }, sheets: [], cellsBySheet: [], transcript: { lines: [] }, audio: audioOf(), skipped: 0, frames: 0 });
     assert.equal(batch, null);
     await assert.rejects(() => writeAnalysis({ cfg, input: 'C:/media/video.mp4', planId: PLAN_ID, batch: 1, note: 'x' }), /recording is off/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('pendingNotes 列出还没写的批次，写完就消失（下一批发不发由它决定）', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-record-'));
+  try {
+    const cfg = cfgOf(dir);
+    const input = 'C:/media/video.mp4';
+    const { stats, probe } = planOf();
+    await ensureHeader({ cfg, input, probe, plan: { stats }, planId: PLAN_ID, snapshot: { mode: 'analysis', a: 0.3, t: 1, maxSheets: 10 } });
+    for (const index of [1, 2]) {
+      await appendBatch({
+        cfg,
+        input,
+        planId: PLAN_ID,
+        batch: { index, total: 2, from: (index - 1) * 10, to: index * 10 },
+        sheets: [],
+        cellsBySheet: [],
+        transcript: { lines: [] },
+        audio: audioOf(),
+        skipped: 0,
+        frames: 0,
+        probe,
+        plan: { stats },
+        snapshot: { mode: 'analysis', a: 0.3, t: 1, maxSheets: 10 },
+      });
+    }
+    assert.deepEqual(await pendingNotes({ cfg, input, planId: PLAN_ID, before: 2 }), [1], '第 1 批没写，第 2 批要被拦住');
+    assert.deepEqual(await pendingNotes({ cfg, input, planId: PLAN_ID, before: 3 }), [1, 2]);
+    await writeAnalysis({ cfg, input, planId: PLAN_ID, batch: 1, note: '这一批看完了' });
+    assert.deepEqual(await pendingNotes({ cfg, input, planId: PLAN_ID, before: 3 }), [2], '写完 1 就只剩 2');
+    assert.deepEqual(await pendingNotes({ cfg: { ...cfg, record: false }, input, planId: PLAN_ID, before: 3 }), [], '关掉记录就没有闸门');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

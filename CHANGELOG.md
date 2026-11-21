@@ -1,6 +1,17 @@
 # 变更记录
 
-版本号遵循 `package.json` 里的 `version`，GitHub Release 的 tag 与之一一对应（`v0.9.1`）。
+版本号遵循 `package.json` 里的 `version`，GitHub Release 的 tag 与之一一对应（`v0.9.2`）。
+
+## 0.9.2 —— 2026-11-21
+
+**逐批写分析变成硬闸门：上一批没写，下一批不发。**
+
+起因：实际使用时，模型倾向于“把全部批次看完，最后写一份总报告”，记录里前面几批的分析位一直是 `<!-- 待补分析 … -->`，而总报告里的细节没有对应时间码，逐批的事实与判断错位。
+
+- `video_watch` 在取图**之前**检查记录：第 N 批之前只要还有空着的分析位，就拒绝发这一批，错误里点名该先写哪一批（例：`batch 3 is on hold: … empty analysis slot for batch 1 …`）。拒绝发生在取图之前，**不花钱**。
+- 新配置 `requireNote`（默认 `true`）可关掉这道闸；`record: false` 时闸门自然失效。
+- `<next>` 里补一句 “The next batch is refused until this entry exists.”，把规则提前讲清，减少撞墙。
+- `video_watch` 的描述同步说明这一点；README / 使用手册 / 参数手册都写了闸门规则与关掉的代价。
 
 ## 0.9.1 —— 2026-11-21
 

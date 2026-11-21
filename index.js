@@ -65,5 +65,5 @@ export function apply(ctx, config) {
 export { expandCommand, resolveConfig } from './lib/config.js';
 export { buildTools, closeupTool, noteTool, planTool } from './lib/tools.js';
 export { MODES, effectiveArgs, executeNote, headOf } from './lib/orchestrate.js';
-export { appendBatch, analysisMarker, ensureHeader, recordPathOf, writeAnalysis } from './lib/record.js';
+export { appendBatch, analysisMarker, ensureHeader, pendingNotes, recordPathOf, writeAnalysis } from './lib/record.js';
 export { renderCloseup, renderNote, renderPlan, renderWatch } from './lib/render.js';
