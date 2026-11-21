@@ -72,7 +72,7 @@ test('renderWatch 把"第几格 = 第几秒"写进正文', () => {
       { index: 2, time: 1.5, label: '0:01.500', sheet: 1, cell: 2 },
     ],
     sheets: [
-      { sheet: 1, cols: 2, rows: 1, width: 800, height: 450, tokens: 233, image: { attachmentId: 'x', mediaType: 'image/jpeg', bytes: 1, width: 800, height: 450 } },
+      { sheet: 1, global: 1, from: 0, to: 1.5, cols: 2, rows: 1, width: 800, height: 450, tokens: 233, image: { attachmentId: 'x', mediaType: 'image/jpeg', bytes: 1, width: 800, height: 450 } },
     ],
     transcript: { source: 'demo.srt', count: 1, lines: [{ start: 0.5, text: '开场' }] },
     skipped: 0,

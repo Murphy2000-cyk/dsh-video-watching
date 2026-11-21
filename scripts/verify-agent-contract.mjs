@@ -57,7 +57,7 @@ const samples = {
   video_watch: {
     ...SAMPLE_HEAD,
     frames: [{ index: 1, time: 0, label: '0:00.000', sheet: 1, cell: 1 }],
-    sheets: [{ sheet: 1, cols: 4, rows: 5, width: 800, height: 450, tokens: 233, image: SAMPLE_IMAGE }],
+    sheets: [{ sheet: 1, global: 1, from: 0, to: 0.9, cols: 4, rows: 5, width: 800, height: 450, tokens: 233, image: SAMPLE_IMAGE }],
     transcript: { source: 'demo.srt', count: 1, lines: [{ start: 0.5, text: '开场' }] },
     skipped: 0,
     batch: { index: 1, total: 3, size: 10, sheets: 28, from: 0, to: 24, next: 2, done: false },
