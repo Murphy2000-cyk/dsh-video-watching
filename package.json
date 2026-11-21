@@ -26,7 +26,11 @@
     "使用手册.md"
   ],
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "contract": "node scripts/verify-agent-contract.mjs",
+    "real": "node scripts/verify-real-output.mjs",
+    "clean": "node scripts/clean.mjs"
   },
   "engines": {
     "node": ">=20"
