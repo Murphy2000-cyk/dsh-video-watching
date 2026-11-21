@@ -230,12 +230,12 @@ async function main() {
   const byName = Object.fromEntries(buildTools({ ctx, run, cfg }).map((tool) => [tool.name, tool]));
 
   console.log('--- video_plan：全片 ---');
-  const plan = await byName.video_plan.execute({ input: video, preset: 'analysis' }, { signal: undefined });
+  const plan = await byName.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
   const planText = byName.video_plan.output.render({}, plan)[0].text;
   console.log(planText);
   await writeFile(join(OUT, 'plan.txt'), planText, 'utf8');
 
-  const windowOf = (from, to) => byName.video_plan.execute({ input: video, preset: 'analysis', from, to, maxSheets: 8 }, { signal: undefined });
+  const windowOf = (from, to) => byName.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true, from, to, maxSheets: 8 }, { signal: undefined });
   const stillPlan = await windowOf(0, 7.5);
   const cutPlan = await windowOf(16.5, 23.9);
   const stillRate = stillPlan.plan.count / 7.5;

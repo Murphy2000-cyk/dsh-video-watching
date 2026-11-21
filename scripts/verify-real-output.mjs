@@ -154,7 +154,7 @@ async function verify(toolName, args) {
   return value;
 }
 
-const plan = await verify('video_plan', { input: video, preset: 'understand' });
+const plan = await verify('video_plan', { input: video, preset: 'understand', userConfirmed: true });
 const watch = await verify('video_watch', { input: video, preset: 'understand', userConfirmed: true });
 const closeup = await verify('video_closeup', { input: video, times: [1.5, '00:04'] });
 

@@ -83,7 +83,7 @@ const say = (text) => lines.push(text);
 
 // ---- 1. video_plan ----
 let started = Date.now();
-const plan = await byName.video_plan.execute({ input: VIDEO, preset: PRESET }, { signal: undefined });
+const plan = await byName.video_plan.execute({ input: VIDEO, preset: PRESET, userConfirmed: true }, { signal: undefined });
 say(`=== video_plan（${((Date.now() - started) / 1000).toFixed(1)} s）===`);
 say(byName.video_plan.output.render({}, plan)[0].text);
 

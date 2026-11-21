@@ -32,7 +32,7 @@ const ctx = { subprocess: { spawn: spawnStub }, get: () => undefined, tools: { r
 const plan = buildTools({ ctx, run, cfg }).find((tool) => tool.name === 'video_plan');
 
 const started = Date.now();
-const value = await plan.execute({ input: VIDEO, preset: 'understand' }, { signal: undefined });
+const value = await plan.execute({ input: VIDEO, preset: 'understand', userConfirmed: true }, { signal: undefined });
 const seconds = ((Date.now() - started) / 1000).toFixed(1);
 
 const info = await stat(`${CACHE}/${value.scan.frames > 0 ? '' : ''}`.replace(/\/$/, ''));
