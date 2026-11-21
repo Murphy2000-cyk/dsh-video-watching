@@ -322,19 +322,33 @@ const byName = buildWith({});
     ].join('\n'),
     'utf8',
   );
-  const withSubs = await byName.video_watch.execute(
-    { input: video, preset: 'analysis', userConfirmed: true, transcriptFile: srtPath },
-    { signal: undefined },
-  );
-  check('字幕被读进来', withSubs.transcript.count === 3, `${withSubs.transcript.count} 条：${withSubs.transcript.source}`);
+  // 字幕现在按**本批**裁剪，所以要像真模型那样把每一批都取一遍再合并。
+  const batches = [];
+  for (let index = 1; index <= 40; index += 1) {
+    const value = await byName.video_watch.execute(
+      { input: video, preset: 'analysis', userConfirmed: true, transcriptFile: srtPath, batch: index },
+      { signal: undefined },
+    );
+    batches.push(value);
+    if (value.batch.done) break;
+  }
+  const allLines = batches.flatMap((value) => value.transcript.lines);
+  const firstBatchText = byName.video_watch.output.render({}, batches[0])[0].text;
+  check('分批取完：批数与 total 一致', batches.length === batches[0].batch.total, `${batches.length} 批 / total=${batches[0].batch.total}`);
+  check('每批都带时间范围与全局序号', batches.every((value) => value.sheets.every((sheet) => typeof sheet.from === 'number' && typeof sheet.global === 'number')), 'ok');
+  check('每批的语音都落在本批时间范围内', batches.every((value) => value.transcript.lines.every((line) => line.start >= value.batch.from - 0.01 && line.start <= value.batch.to + 0.01)), 'ok');
+  // 测试片开头 8 秒是静止画面，第一批从 5 秒起（静止段没有变化，只有 maxGap 补的那一帧），
+  // 所以 0.5 秒那条字幕本就不在任何一批的范围内。这里按"覆盖到的范围"核对，别写死条数。
+  const covered = [batches[0].batch.from, batches.at(-1).batch.to];
+  const expected = [9, 18.2];
+  check('跨批合并后字幕齐了（覆盖范围内）', allLines.length === expected.length, `${allLines.length} 条：${batches[0].transcript.source}，覆盖 ${covered[0]}-${covered[1]}s`);
   check(
     '每条字幕都带时间码且按秒对齐',
-    withSubs.transcript.lines.every((line) => typeof line.start === 'number') &&
-      Math.abs(withSubs.transcript.lines[0].start - 0.5) < 0.01,
-    withSubs.transcript.lines.map((line) => `${line.start}s`).join(' '),
+    allLines.every((line) => typeof line.start === 'number') &&
+      allLines.every((line) => expected.some((time) => Math.abs(line.start - time) < 0.01)),
+    allLines.map((line) => `${line.start}s`).join(' '),
   );
-  const subsText = byName.video_watch.output.render({}, withSubs)[0].text;
-  check('字幕行进了正文', /\[0:00\.500\] 开场的黑屏旁白/.test(subsText), 'ok');
+  check('字幕行进了正文', /\[0:09\.000\] 这是第二段的第一句/.test(firstBatchText), 'ok');
 
   console.log('\n--- 交付形态对比（密段拼图 / 档位 / 疏段单帧）---');
   await compareModes(buildWith, video, 'fixture');
