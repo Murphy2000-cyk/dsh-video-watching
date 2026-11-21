@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Watch video",
-    "description": "Plan first, pay once: video_plan checks the whole-clip budget and issues a planId; video_watch only executes that approved plan."
+    "description": "Plan first, pay once: checks the whole-clip budget, then executes the approved plan."
   }
 }

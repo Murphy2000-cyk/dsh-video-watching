@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "看视频",
-    "description": "先定预算再开看：plan 判能不能完整看完并给 planId，watch 只执行已批准的采样计划"
+    "title": "Watch video",
+    "description": "看视频插件"
   }
 }
