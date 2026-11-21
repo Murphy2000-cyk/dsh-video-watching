@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 真片子上的音频端到端验证：本地语音 + 云端 BGM/音效。
  *
  * 用一支 3 分 51 秒的讲解片（有旁白、没配乐），看：
@@ -68,7 +68,7 @@ const ctx = {
   tools: { register: () => () => {} },
 };
 
-const cfg = resolveConfig({ sherpaPath: DSH_SHERPA, bgmMaxChunks: 8 });
+const cfg = resolveConfig({ sherpaPath: DSH_SHERPA, bgmMaxChunks: 8, record: false });
 const run = createRunner((spec) => spawnStub(spec), { graceMs: 2000, timeoutMs: 180000 });
 const tools = buildTools({ ctx, run, cfg });
 const planTool = tools.find((tool) => tool.name === 'video_plan');

@@ -1,22 +1,24 @@
-/**
+﻿/**
  * dsh-video-watching —— 先扫全片，再按画面变化决定取帧密度。
  *
  * 它和已有视频插件的分野只有一句话：**采样间隔随画面变化**。
  * 静止的地方拉长到几秒一帧，快剪的地方压到一秒三帧，切点上强制落一帧；
  * 多帧拼进一张小图省 token，看不清的再单独取回原图。
  *
- * 三个工具：
+ * 四个工具：
  *   - `video_plan`   扫描 + 判预算：完整看完够不够、要几张图；够了给 planId（0 视觉 token）
- *   - `video_watch`  凭 planId 执行已批准的计划，按批交付拼图 + 时间码清单 + 字幕
+ *   - `video_watch`  凭 planId 执行已批准的计划，按批交付拼图 + 时间码清单 + 字幕 + 音频
+ *   - `video_note`   把某一批的分析写进观看记录（Markdown，0 视觉 token）
  *   - `video_closeup` 按时间码取回全分辨率单帧
  *
  * 代码分几块，各自一个文件：
  *   - `lib/config.js`       配置归一化
  *   - `lib/presets.js`      两套预设与 effectiveArgs
- *   - `lib/tools.js`        三个工具的定义（模型读到的描述与参数在这里）
- *   - `lib/feasibility.js`  预算闸门：required / minimum / 四个候选方案
+ *   - `lib/tools.js`        四个工具的定义（模型读到的描述与参数在这里）
+ *   - `lib/feasibility.js`  预算检查：required / minimum / 四个候选方案
  *   - `lib/plans.js`        计划快照：哈希、落盘、校验
- *   - `lib/orchestrate.js`  探测、扫描、plan 初判与定稿、watch 执行
+ *   - `lib/record.js`       观看记录：Markdown 落盘、批次追加、分析补写
+ *   - `lib/orchestrate.js`  探测、扫描、plan 初判与定稿、watch 执行、note 落盘
  *   - `lib/render.js`       返回值 → 内容块
  *   - `lib/util.js`         共用小工具
  *
@@ -61,6 +63,7 @@ export function apply(ctx, config) {
 }
 
 export { expandCommand, resolveConfig } from './lib/config.js';
-export { buildTools, closeupTool, planTool } from './lib/tools.js';
-export { PRESETS, effectiveArgs, headOf } from './lib/orchestrate.js';
-export { renderCloseup, renderPlan, renderWatch } from './lib/render.js';
+export { buildTools, closeupTool, noteTool, planTool } from './lib/tools.js';
+export { PRESETS, effectiveArgs, executeNote, headOf } from './lib/orchestrate.js';
+export { appendBatch, analysisMarker, ensureHeader, recordPathOf, writeAnalysis } from './lib/record.js';
+export { renderCloseup, renderNote, renderPlan, renderWatch } from './lib/render.js';

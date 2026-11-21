@@ -1,5 +1,5 @@
 /**
- * 用 Agent**自己的**校验器验一遍三个工具的契约。
+ * 用 Agent**自己的**校验器验一遍四个工具的契约。
  *
  * 单测里的 schema 校验是"我按文档写的"，这份脚本拿的是 Agent 安装里的真货：
  * 一个不支持的关键字不是"工具不太好用"，而是 `ctx.tools.register()` 在 apply
@@ -24,10 +24,10 @@ const { sampleHead, sampleAudio } = await import('../test/fixture.mjs');
 const cfg = resolveConfig({});
 const tools = buildTools({ ctx: {}, run: async () => ({ code: 0, stdout: '', stderr: '' }), cfg });
 
-assert.equal(tools.length, 3, '应当注册三个工具');
+assert.equal(tools.length, 4, '应当注册四个工具');
 assert.deepEqual(
   tools.map((tool) => tool.name),
-  ['video_watch', 'video_plan', 'video_closeup'],
+  ['video_watch', 'video_plan', 'video_note', 'video_closeup'],
 );
 
 const failures = [];
@@ -70,6 +70,7 @@ const samples = {
     durationSeconds: 90,
     frames: [{ time: 12.5, label: '0:12.500', width: 1280, height: 720, image: { ...SAMPLE_IMAGE, width: 1280, height: 720 } }],
   },
+  video_note: { path: 'C:/Users/demo/Desktop/demo.观看记录.md', batch: 2, bytes: 1200, appended: false },
 };
 
 for (const tool of tools) {
@@ -86,7 +87,12 @@ for (const tool of tools) {
   if (!Array.isArray(blocks) || blocks.length === 0) failures.push(`${tool.name}: render 返回空`);
   else if (blocks[0].type !== 'text') failures.push(`${tool.name}: 首块不是 text`);
   const images = blocks.filter((block) => block.type === 'image').length;
-  const expectedImages = tool.name === 'video_plan' ? 0 : sample.frames.length > 0 && tool.name === 'video_closeup' ? sample.frames.length : sample.sheets.length;
+  const expectedImages =
+    tool.name === 'video_plan' || tool.name === 'video_note'
+      ? 0
+      : sample.frames.length > 0 && tool.name === 'video_closeup'
+        ? sample.frames.length
+        : sample.sheets.length;
   if (images !== expectedImages) failures.push(`${tool.name}: 期望 ${expectedImages} 张图，render 给了 ${images} 张`);
 }
 

@@ -8,8 +8,8 @@ const cfg = resolveConfig({});
 const tools = buildTools({ ctx: {}, run: async () => ({ code: 0, stdout: '', stderr: '' }), cfg });
 const byName = Object.fromEntries(tools.map((tool) => [tool.name, tool]));
 
-test('三个工具名固定且互不冲突', () => {
-  assert.deepEqual(Object.keys(byName).sort(), ['video_closeup', 'video_plan', 'video_watch']);
+test('四个工具名固定且互不冲突', () => {
+  assert.deepEqual(Object.keys(byName).sort(), ['video_closeup', 'video_note', 'video_plan', 'video_watch']);
 });
 
 test('每个工具的参数根都是 object 且禁得住空入参校验', () => {
@@ -246,4 +246,30 @@ test('preset 只在 plan 上是必填（模式在 plan 那一步定），watch �
   assert.equal(byName.video_watch.parameters.properties.preset, undefined, 'watch 不再决定模式');
   assert.equal(byName.video_watch.parameters.properties.userConfirmed, undefined, '确认发生在 plan 那一步');
   assert.equal(byName.video_closeup.parameters.properties.preset, undefined, 'closeup 不需要模式');
+});
+
+test('video_note 是纯本地记录：必填四项，输出只有落盘信息', () => {
+  const note = byName.video_note;
+  assert.deepEqual([...note.parameters.required].sort(), ['batch', 'input', 'note', 'planId']);
+  assert.equal(note.parameters.properties.batch.type, 'integer');
+  assert.equal(note.parameters.properties.note.type, 'string');
+  // 取值形状逐字段对齐 schema：多一个键就是 INVALID_TOOL_OUTPUT
+  const schema = note.output.schema;
+  assert.deepEqual(schema.required.sort(), ['appended', 'batch', 'bytes', 'path']);
+  assert.equal(schema.additionalProperties, false);
+  // 它不该出图，也不该要求视频真的存在（只写 Markdown）
+  const blocks = note.output.render({}, { path: 'C:/x/video.观看记录.md', batch: 2, bytes: 120, appended: false });
+  assert.equal(blocks[0].type, 'text');
+  assert.match(blocks[0].text, /video-note/);
+  assert.match(blocks[0].text, /batch="2"/);
+});
+
+test('观看记录默认开、默认写桌面，也可以整体关掉', () => {
+  const defaults = resolveConfig({});
+  assert.equal(defaults.record, true);
+  assert.match(defaults.recordDir, /Desktop$/);
+  assert.equal(resolveConfig({ record: false }).record, false);
+  assert.equal(resolveConfig({ record: 'false' }).record, true, '只认真正的 false，字符串不关');
+  assert.equal(resolveConfig({ recordDir: 'F:/记录' }).recordDir, 'F:/记录');
+  assert.equal(resolveConfig({ recordDir: 'desktop' }).recordDir, defaults.recordDir);
 });

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 诊断：为什么 analysis 模式下会出现 7–8 秒空洞（maxGap 明明是 5）。
  *
  * 不去猜缓存键：直接扫缓存目录，按 duration 找出这支片子的那份打分。
@@ -11,7 +11,7 @@ import { PRESETS, resolveConfig } from '../index.js';
 import { planFrames } from '../lib/plan.js';
 
 const TARGET_DURATION = 64.85;
-const cfg = resolveConfig({});
+const cfg = resolveConfig({ record: false });
 const dir = cfg.cacheDir;
 
 const files = (await readdir(dir)).filter((name) => name.endsWith('.json'));

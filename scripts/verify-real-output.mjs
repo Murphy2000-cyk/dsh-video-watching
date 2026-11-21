@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 用 Agent 自己的校验器验**真实调用产出**，而不是手写样例。
  *
  * `verify-agent-contract.mjs` 验的是"schema 本身合法 + 手写样例过校验"；
  * 手写样例漏一个键是不会报的（`INVALID_TOOL_OUTPUT` 就是这么漏过去的）。
- * 这份脚本走另一条：真造一部片子 → 真跑三个工具的 execute → 拿**真实返回值**
+ * 这份脚本走另一条：真造一部片子 → 真跑四个工具的 execute → 拿**真实返回值**
  * 喂给 Agent 的 `validateJsonSchemaValue` → 再喂给各自的 render。
  *
  * 跑法：`node scripts/verify-real-output.mjs [视频]`
@@ -11,7 +11,7 @@
 
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -25,7 +25,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'smoke-out', '_real');
 // 本机 DSH 安装里自带 sherpa-onnx-node 与 SenseVoice 的 ONNX 模型，直接借用，免装原生包。
 const DSH_SHERPA = 'C:/Users/lenovo/AppData/Roaming/npm/node_modules/@deepseek-ai/dsh/node_modules/sherpa-onnx-node';
-const cfg = resolveConfig({ sherpaPath: DSH_SHERPA });
+const cfg = resolveConfig({ sherpaPath: DSH_SHERPA, recordDir: OUT });
 const FFMPEG = cfg.ffmpegPath;
 
 const failures = [];
@@ -147,7 +147,12 @@ async function verify(toolName, args) {
     return value;
   }
   const images = blocks.filter((block) => block.type === 'image').length;
-  const expected = toolName === 'video_plan' ? 0 : toolName === 'video_closeup' ? value.frames.length : value.sheets.length;
+  const expected =
+    toolName === 'video_plan' || toolName === 'video_note'
+      ? 0
+      : toolName === 'video_closeup'
+        ? value.frames.length
+        : value.sheets.length;
   check(`${toolName} render 出图数`, images === expected, `${images} / 期望 ${expected}`);
   const text = blocks.filter((block) => block.type === 'text').map((block) => block.text).join('\n');
   check(`${toolName} 清单里没有 undefined/NaN`, !/undefined|NaN/.test(text), text.match(/undefined|NaN/g)?.slice(0, 3).join(',') ?? '');
@@ -164,6 +169,14 @@ if (plan !== null && typeof planId !== 'string') {
   check('预算不够时 choice=truncate 能定稿', typeof planId === 'string');
 }
 const watch = await verify('video_watch', { input: video, planId, batch: 1 });
+const note = watch === null ? null : await verify('video_note', { input: video, planId, batch: 1, note: '端到端校验：这一批的画面、时间码与音频都写进了记录。' });
+if (typeof watch?.record === 'string') {
+  const text = await readFile(watch.record, 'utf8');
+  check('观看记录已落盘，含批次时间与图片组成', /## 批次 1 \//.test(text) && /### 时间与图片组成/.test(text), watch.record);
+  check('video_note 的内容进了同一份记录', note !== null && /端到端校验/.test(text));
+} else {
+  check('watch 返回了记录路径', false);
+}
 const closeup = await verify('video_closeup', { input: video, times: [1.5, '00:04'] });
 
 // 语义不变量：每张图片都顶到 384 token 天花板，所以总 token 必须等于张数 × 384。

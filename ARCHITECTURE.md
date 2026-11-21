@@ -1,4 +1,4 @@
-# 看视频插件 · 架构与运行流程
+﻿# 看视频插件 · 架构与运行流程
 
 > 插件 id：`video-watching`　包名：`dsh-video-watching`　入口：`index.js`　版本：0.6.0
 > 本文描述**当前实现**。凡写"现在"的地方都与代码一致。
@@ -16,7 +16,7 @@
 
 核心约束一句话：**一张图固定约 384 token，所以"交付几张图"就是钱，"多少格画面"不是。**
 
-## 二、职责只有两段：plan 闸门 + watch 执行
+## 二、职责只有两段：plan 先行 + watch 执行
 
 | 段 | 工具 | 干什么 | 能不能动预算 |
 |---|---|---|---|
@@ -48,10 +48,11 @@
 |---|---|---|
 | `video_plan` | `input` `preset` `userConfirmed` + `from` `to` + `choice{id,budget?,a?,t?}` | `input` `preset` `userConfirmed` |
 | `video_watch` | `input` `planId` + `batch` `burn` `transcriptFile` | `input` `planId` |
+| `video_note` | `input` `planId` `batch` `note` | 全部必填 |
 | `video_closeup` | `input` `times` `burn` | `input` `times` |
 
-`userConfirmed` 是模式门禁：不是 `true` 就直接抛错，不扫描、不出图、不花钱。
-`planId` 是预算门禁：没有它 watch 直接抛错。
+`userConfirmed` 是**模式选择开关**：不是 `true` 就直接抛错，不扫描、不出图、不花钱。
+`planId` 是**预算凭据**：没有它 watch 直接抛错，因为没人事先论证过"这段看完要几张图"。
 
 ### 3.2 预设
 
@@ -64,7 +65,7 @@
 | `cutPair` | false | false | 硬切取前后两帧（一张图 2 格） |
 | `maxSheets` | 10 | 20 | **每批**图片张数（只影响切批） |
 
-### 3.3 配置（31 项）
+### 3.3 配置（33 项）
 
 | 组 | 键 |
 |---|---|
@@ -73,6 +74,7 @@
 | 输出 | `quality`(3) `burn`(time) `fontFile` |
 | 字幕 | `transcriptCommand`([]) |
 | 缓存 | `cacheDir` `cacheMaxEntries`(200) |
+| 观看记录 | `record`(true) `recordDir`(~/Desktop) |
 | 超时 | `timeoutMs`(180000) `toolTimeoutMs`(900000) `graceMs`(2000) |
 | 预算 | `maxTotalSheets`(100) `overflow`(stop，只决定 plan 的推荐项) |
 | 采样覆盖 | `a` `t` `maxGap` `multiCross` `cutPair` `maxSheets`（默认 `null` = 跟随预设） |
@@ -85,16 +87,17 @@
 |---|---|---|
 | `index.js` | 63 | 入口：`apply` / `inject` / 再导出 |
 | `lib/presets.js` | 57 | 两套预设与 `effectiveArgs` |
-| `lib/config.js` | 190 | 配置归一化、路径与默认值 |
-| `lib/tools.js` | 537 | 三个工具的定义（schema 与执行体） |
-| `lib/orchestrate.js` | 697 | 探测→扫描→初判/定稿→取帧→拼图→音视频→组装 |
-| `lib/feasibility.js` | 237 | 预算闸门：`required`/`minimum`/四选项/`choice` 解析 |
+| `lib/config.js` | 205 | 配置归一化、路径与默认值 |
+| `lib/tools.js` | 640 | 四个工具的定义（schema 与执行体） |
+| `lib/orchestrate.js` | 780 | 探测→扫描→初判/定稿→取帧→拼图→音视频→记录→组装 |
+| `lib/feasibility.js` | 237 | 预算检查：`required`/`minimum`/四选项/`choice` 解析 |
 | `lib/plans.js` | 203 | 计划快照：哈希、落盘、校验、淘汰 |
+| `lib/record.js` | 300 | 观看记录：文档头、批次追加、分析补写 |
 | `lib/plan.js` | 735 | 积分法采样、补帧、分窗、预算、`planFeasibility`、`fitDensity` |
 | `lib/scan.js` | 254 | 全片扫描，产出逐帧变化曲线 |
 | `lib/grid.js` | 160 | 拼图合成、token 估算、尺寸规则 |
 | `lib/delivery.js` | 65 | 计划分组 → 交付分组、成本 |
-| `lib/render.js` | 271 | 返回值 → 内容块（含 budget/options/coverage 正文） |
+| `lib/render.js` | 296 | 返回值 → 内容块（含 budget/options/coverage 正文） |
 | `lib/cache.js` | 126 | 扫描曲线缓存与淘汰 |
 | `lib/audio.js` | 699 | 本地语音识别 + 云端 BGM 分析 |
 | `lib/ffmpeg.js` | 451 | 探测、取帧、拼图、字幕导出 |
@@ -108,13 +111,13 @@
 ### 5.1 `video_plan` 初判（预算够不够）
 
 ```
-① 门禁 → ② 探测 → ③ 扫描（缓存优先）→ ④ 按预设密度算 required
+① 模式选择 → ② 探测 → ③ 扫描（缓存优先）→ ④ 按预设密度算 required
        → ⑤ 算补帧下限 minimum → ⑥ required ≤ maxTotalSheets ?
 ```
 
 | 步 | 代码位置 | 做什么 |
 |---|---|---|
-| ① 门禁 | `executePlan` | `userConfirmed !== true` 直接抛错 |
+| ① 模式选择 | `executePlan` | `userConfirmed !== true` 直接抛错（没问过用户就不开工） |
 | ② 探测 | `ffmpeg.js probeVideo` | 时长/分辨率/帧率/音轨/字幕轨；无 ffprobe 时退 `ffmpeg -i` |
 | ③ 扫描 | `scan.js` + `cache.js` | 10 fps 抽帧 → 缩到 120 px → 4×4 块 → 逐块亮度差；键含路径/大小/mtime/全部扫描口径 |
 | ④ required | `plan.js planFrames` | 不设上限跑一遍 = "预设密度铺满整段要几张" |
@@ -146,7 +149,7 @@ choice → 解析采样与 limit → 重算计划 → 校验进预算 → 落快
 ```
 ① planId → 读快照 → ② 校验（文件/扫描口径）→ ③ 探测+扫描
 → ④ 按快照重算计划并比对 → ⑤ 切批 → ⑥ 取帧 → ⑦ 拼图 → ⑧ 交附件
-→ ⑨ 字幕 → ⑩ 语音/BGM → ⑪ 定标题 → ⑫ 渲染
+→ ⑨ 字幕 → ⑩ 语音/BGM → ⑪ 定标题 → ⑫ 渲染 → ⑬ 观看记录
 ```
 
 | 步 | 细节 | 花钱/耗时 |
@@ -163,6 +166,7 @@ choice → 解析采样与 limit → 重算计划 → 校验进预算 → 落快
 | ⑩ 语音/BGM | 本地 SenseVoice（60 秒一片）+ 云端 BGM（30 秒一片） | 本地约 2 秒；云端按秒 |
 | ⑪ 标题 | 口播与字幕里与这张图重叠的句子，截 42 字进 `sheet.title` | 0 |
 | ⑫ 渲染 | `renderWatch`：文本 + N 张图片 | 0 |
+| ⑬ 记录 | `record.js appendBatch`：本批的图组成、时间码、语音、BGM 追加进 Markdown；`video_note` 再补模型分析 | 0 |
 
 ## 六、数据结构
 
@@ -213,6 +217,24 @@ index total size sheets from to next batchDone videoComplete
 
 `batchDone` = 计划里的最后一批；`videoComplete` = 整片是否真的看完了。截断方案下前者真、后者假。
 
+### 6.6 观看记录（`<recordDir>/<视频名>.观看记录.md`）
+
+`video_plan` 定稿时写文档头（规格、计划、预算）；`video_watch` 每交付一批就追加一节：
+
+```
+## 批次 i / total · from–to
+- 图片：N 张 · 画面 M 幅 · 抽取失败 K 幅
+### 时间与图片组成     每张图：全局序号 / 起止 / 网格 / 格数 / tokens / 子图时间码 / 台词
+### 语音             本地 ASR 逐句，带起止
+### BGM              逐片标签 + 变化点 + 音效 + 检索词
+### 内容 / 剪辑手法 / 风格 / 动画
+<!-- 待补分析 <planId> 批次 i -->      ← video_note 用（planId, batch）精确替换
+```
+
+- 标记带 `planId`：同一部片子跑第二轮时，两轮的同一批不会互相覆盖。
+- `record: false` 时三个入口都不写；`video_note` 直接报错，不静默成功。
+- 写文档失败不让 watch 失败：记录是旁路。
+
 ## 七、失败模式与降级
 
 | 情况 | 行为 |
@@ -229,6 +251,8 @@ index total size sheets from to next batchDone videoComplete
 | 没有 API key / 云端失败 | `bgm.status = unavailable`，写进 `<note>`，**绝不把"没分析"写成"没有声音"** |
 | 批次号越界 | **抛错**，写明范围与下一步 |
 | 附件服务返回数量不符 | 抛错，拒绝部分交付 |
+| 观看记录写不进去（磁盘/权限） | watch 照常交付；`record` 字段缺省，不把"没记录"当成"没看过" |
+| 没看过就调 `video_note` | 抛错：记录文档还不存在 |
 
 ## 八、为什么采样口径与预算都不进工具参数
 
@@ -240,6 +264,12 @@ index total size sheets from to next batchDone videoComplete
 现在唯一的改动路径是配置、预设，或 plan 阶段由用户签字的一次性 `choice`。
 
 ## 九、已修与待修
+
+### 已修（0.7.0）
+
+- 观看记录：`video_plan` 写文档头，`video_watch` 每批追加时间码、图片组成、语音、BGM，`video_note` 补模型分析；默认放桌面，`record`/`recordDir` 可配。
+- 术语：把"门禁"统一改成"模式选择"/"预算凭据"等直白说法，工具描述与文档同步。
+- 工具从 3 个变成 4 个；契约脚本、冒烟脚本同步覆盖 `video_note`。
 
 ### 已修（0.6.0）
 
@@ -263,7 +293,7 @@ index total size sheets from to next batchDone videoComplete
 - 整片上限由 `maxTotalSheets` 定（默认 100 ≈ 38.4k token）
 - 音频：本地语音 0 成本；BGM 按音频秒数计费，实测 1 小时 ≈ ¥0.45
 - 扫描：免费，但首次要解码全片（缓存后为 0）
-- 预算闸门本身只做纯计算，不额外解码
+- 预算检查本身只做纯计算，不额外解码
 
 ## 十一、文件落点
 
@@ -272,6 +302,7 @@ index total size sheets from to next batchDone videoComplete
 | 插件本体 | `F:\Agent\DeepseekHarness\dsh-video-watching\` |
 | 扫描缓存 | profile 配置的 `cacheDir`（当前指向 `Data-of-skill-plugin\agent-data\cache\video-watching`） |
 | 计划快照 | 同目录下的 `plans\` |
+| 观看记录 | `recordDir`（默认桌面）下的 `<视频名>.观看记录.md` |
 | 临时目录 | `%TEMP%\dsh-video-watching-*`，`finally` 里删除 |
 | 交付图片 | DSH attachments 目录 |
 | 测试与脚本 | `test\`、`scripts\`（`npm test` / `contract` / `real` / `smoke`） |

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 端到端冒烟：造一部**已知节奏**的测试片，看插件是否真的按节奏分配帧。
  *
  * 测试片的构造就是断言的前提：
@@ -11,7 +11,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -236,10 +236,10 @@ async function main() {
   const video = await buildFixture();
   console.log(`测试片：${video}\n`);
 
-  const cfg = resolveConfig({ scanFps: 10, cacheDir: join(OUT, '_cache') });
+  const cfg = resolveConfig({ scanFps: 10, cacheDir: join(OUT, '_cache'), recordDir: join(OUT, '_record') });
   const run = createRunner((spec) => spawnStub(spec), { graceMs: 2000, timeoutMs: 180000 });
   const buildWith = (overrides) => {
-  const scopedCfg = resolveConfig({ scanFps: 10, cacheDir: join(OUT, '_cache'), ...overrides });
+  const scopedCfg = resolveConfig({ scanFps: 10, cacheDir: join(OUT, '_cache'), recordDir: join(OUT, '_record'), ...overrides });
   return Object.fromEntries(buildTools({ ctx, run, cfg: scopedCfg }).map((tool) => [tool.name, tool]));
 };
 const byName = buildWith({});
@@ -267,7 +267,7 @@ const byName = buildWith({});
   check('快剪段认出至少 7 次硬切', cutPlan.plan.cuts >= 7, `cuts=${cutPlan.plan.cuts}`);
   check('变化量按窗口记账', cutPlan.plan.totalChange > stillPlan.plan.totalChange, `${stillPlan.plan.totalChange} -> ${cutPlan.plan.totalChange}`);
 
-  console.log('\n--- 预算闸门 ---');
+  console.log('\n--- 预算检查 ---');
   try {
     await byName.video_watch.execute({ input: video }, { signal: undefined });
     check('没有 planId 的 watch 会被拒', false, '居然执行了');
@@ -340,6 +340,21 @@ const byName = buildWith({});
     '图片与图片之间：起始时间递增',
     firsts.every((time, index) => index === 0 || time >= firsts[index - 1] - 1e-9),
     firsts.map((t) => t.toFixed(2)).join(' < '),
+  );
+
+  console.log('\n--- 观看记录 ---');
+  const noteResult = await byName.video_note.execute(
+    { input: video, planId: truncatedPlan.planId, batch: 1, note: '- 冒烟：这一批的画面与音频已写入记录。' },
+    { signal: undefined },
+  );
+  const recordText = await readFile(noteResult.path, 'utf8');
+  check('记录文档落在配置的目录', noteResult.path.startsWith(join(OUT, '_record')), noteResult.path);
+  check('记录写了批次时间与图片组成', /## 批次 1 \//.test(recordText) && /### 时间与图片组成/.test(recordText), 'ok');
+  check('记录里有语音与 BGM 段', /### 语音/.test(recordText) && /### BGM/.test(recordText), 'ok');
+  check(
+    'video_note 填进了自己那一批的占位',
+    /冒烟：这一批/.test(recordText) && !new RegExp(`待补分析 ${truncatedPlan.planId} 批次 1`).test(recordText),
+    noteResult.appended ? 'appended' : 'filled',
   );
 
   console.log('\n--- video_closeup ---');

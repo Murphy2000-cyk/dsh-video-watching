@@ -1,5 +1,5 @@
-/**
- * 完整跑一遍三个工具，把交付物落到本地，供人工/模型看图写总结。
+﻿/**
+ * 完整跑一遍四个工具，把交付物落到本地，供人工/模型看图写总结。
  *
  * 用法：node scripts/probe-full.mjs <视频> <输出目录> [preset] [maxSheets]
  */
@@ -73,7 +73,7 @@ const ctx = {
   tools: { register: () => () => {} },
 };
 
-const cfg = resolveConfig({ sherpaPath: DSH_SHERPA, maxTotalSheets: MAX_SHEETS });
+const cfg = resolveConfig({ sherpaPath: DSH_SHERPA, maxTotalSheets: MAX_SHEETS, record: false });
 const run = createRunner((spec) => spawnStub(spec), { graceMs: 2000, timeoutMs: 300000 });
 const tools = buildTools({ ctx, run, cfg });
 const byName = Object.fromEntries(tools.map((tool) => [tool.name, tool]));

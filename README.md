@@ -1,4 +1,4 @@
-# dsh-video-watching
+﻿# dsh-video-watching
 
 让 DSH 按**画面累计变化量**决定看多密：变化攒够了才取一帧，一秒攒够几次就把它们拼进同一张图片。
 
@@ -15,15 +15,16 @@
 变化率高  ──  攒 0.3 个满屏变化要 0.1 秒 ──  一秒十帧，拼 4x4
 ```
 
-## 三个工具
+## 四个工具
 
 | 工具 | 干什么 | 视觉 token |
 |---|---|---|
 | `video_plan` | 扫描并**判预算**：报时长、切点、密度地图、完整看完要几张图、`maxTotalSheets` 够不够。够了就给 `planId`；不够就给四条带数字的选项（抬预算 / 截断 / 换档 / 调 a、t） | **0** |
-| `video_watch` | 凭 `planId` 执行已批准的计划，按批交付拼图 + 时间码清单 + 字幕 + 音频分析 | 每张图 384（1440p 拼图 / 1080p 单帧） |
+| `video_watch` | 凭 `planId` 执行已批准的计划，按批交付拼图 + 时间码清单 + 字幕 + 音频分析，并把这一批的组成写进观看记录 | 每张图 384（1440p 拼图 / 1080p 单帧） |
+| `video_note` | 把模型对这一批的分析（内容、剪辑手法、风格、动画做法）补写进同一份观看记录 | **0** |
 | `video_closeup` | 按时间码取回全分辨率单帧 | 384（原分辨率，单图封顶） |
 
-顺序是硬的：**先 plan 拿到 `planId`，再 watch**。plan 就是"这支片子能不能完整看下来、要花多少钱"的那道闸门；watch 只执行，不再改预算或密度。图里某张子图糊得看不清，用 `video_closeup` 对着时间码取原图。
+顺序是硬的：**先 plan 拿到 `planId`，再 watch**。plan 就是"这支片子能不能完整看下来、要花多少钱"的第一关；watch 只执行，不再改预算或密度。图里某张子图糊得看不清，用 `video_closeup` 对着时间码取原图。
 
 ## 名词
 
@@ -69,7 +70,7 @@
 
 扫描结果按 `路径 + 大小 + 修改时间 + 分析帧率 + 分析尺寸 + 块参数` 缓存在配置的 `cacheDir`（默认 `~/.dsh/cache/video-watching/`）；定稿的计划快照存在同目录的 `plans/` 下。
 
-## 两道门禁：模式 + 预算
+## 两道检查：模式选择 + 预算
 
 **第一道在 plan 之前**：`video_plan` 要求 `userConfirmed: true`，否则直接报错、**不扫描、不出图、不花钱**。因为"走解析还是走理解"是插件干活之前的第一个决定，不该等到取图那一步再定。
 
@@ -117,6 +118,7 @@
 | | `choice` | | 用户选完方案后回填：`{id, budget?, a?, t?}`，`id` ∈ raise / truncate / understand / density |
 | `video_watch` | `input` `planId` | ✅ | `planId` 由 plan 返回，没有就报错 |
 | | `batch` `burn` `transcriptFile` | | 第几批 / 角标内容 / 外部字幕 |
+| `video_note` | `input` `planId` `batch` `note` | ✅ | 这一批的分析（Markdown），写进观看记录 |
 | `video_closeup` | `input` `times` | ✅ | 时间码，`12.5` 或 `"01:30"` |
 
 ### 采样参数（跟随 preset，配置可覆盖，模型传不进）
@@ -143,6 +145,8 @@
 | `burn` | `time` | `time/index/none` | 烧进子图角标的时间码 / 序号 |
 | `fontFile` | consolab.ttf | 路径 | 烧字字体 |
 | `cacheDir` | `~/.dsh/cache/video-watching` | 绝对路径 | 扫描结果缓存位置 |
+| `record` | `true` | true/false | 是否把每批的组成与音频分析写进观看记录 |
+| `recordDir` | `~/Desktop` | 路径或 `desktop` | 观看记录（Markdown）放哪个目录 |
 | `ffmpegPath` / `ffprobePath` | 自动解析 | 路径 | ffmpeg 位置 |
 | `timeoutMs` / `toolTimeoutMs` / `graceMs` | 180000 / 900000 / 2000 | 毫秒 | 超时与终止宽限 |
 | `transcriptCommand` | `[]` | 数组 | 外部转写命令 |
@@ -186,6 +190,37 @@
 后面的批次才能接着理解。如果分批丢给子代理或换会话，连贯性就断了。
 
 **不要一次性把所有批次都拉下来**——那样等于又回到"一次看太多"，总结质量会掉，这正是分批要避免的。
+
+## 观看记录（Markdown）
+
+每看一批，插件就把这一批**量得到的东西**写进文档：批次起止、每张图的网格与 token、每张子图的时间码、台词、语音转写、BGM 标签与检索词。模型对这一批的判断（在讲什么、怎么剪的、什么风格、动画怎么做的）由 `video_note` 补进同一段的占位处 —— 事实与判断分开写，谁也不冒充谁。
+
+```
+桌面\video.观看记录.md
+
+# video.mp4 · 观看记录
+- 规格：64.85 秒 · 1920×1080 · 30 fps · 有音轨 · 0 条字幕轨
+- 计划：`bc54410fdcc7a3f5` · 模式 视频解析 · a=0.3 t=1s · 每批最多 10 张
+- 预算：64 张图 ≈ 24576 tokens · 覆盖 0:00.000–1:04.850 · 共 7 批
+
+## 批次 1 / 7 · 0:00.000–0:10.000
+- 图片：10 张 · 画面 47 幅 · 抽取失败 0 幅
+### 时间与图片组成
+- **图 1**（全局 1）0:00.000–0:01.000 · 4×4 · 16 格 · 384 tokens
+  - 子图时间：0:00.031、0:00.094、…
+  - 台词：剪映用的爽吧 / 字幕识别快
+### 语音
+- [0:00.240–0:04.380] 剪映用的爽吧…
+### BGM
+- 0:00.000–0:10.000 · prominent / 电子 / 快 / 欢快 — 节奏感强烈…
+### 内容 / 剪辑手法 / 风格 / 动画
+（video_note 写进来的分析）
+```
+
+- 默认路径：`~/Desktop/<视频名>.观看记录.md`；`recordDir` 可以改。
+- 同一部片子换计划再跑一次，会追加"新一轮分析"，不覆盖上一轮。
+- `record: false` 可以整体关掉；关掉之后 `video_note` 会直接报错，而不是悄悄什么都不写。
+- 写文档失败**不会**让取图失败：记录是旁路，交付是主路。
 
 ## 拼图与 token
 
@@ -282,6 +317,8 @@ dsh plugin --profile web add dsh-video-watching
     # fontFile: C:/Windows/Fonts/consolab.ttf   # 非 Windows 上没有该文件，会自动关掉烧字
     # cacheDir: F:/Data/video-watching     # 默认 ~/.dsh/cache/video-watching
     # cacheMaxEntries: 200    # 缓存最多留几个文件，超了按最久没写过的淘汰
+    # record: true            # 每批的图片组成 / 语音 / BGM 写进 Markdown 观看记录
+    # recordDir: desktop      # 记录放哪：desktop（默认）或一个绝对路径
     # speechMode: auto        # off / auto：本地语音识别
     # speechModelDir: ~/.dsh/speech-to-text/sensevoice/models/sensevoice-onnx
     # sherpaPath: C:/somewhere/node_modules/sherpa-onnx-node
@@ -360,7 +397,7 @@ BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**
 - **扫描要解码全长**。90 分钟的片子第一次要跑几分钟，之后走缓存。
 - **`tile` 只按连续文件名读**。取帧有失败时脚本会把成功的重排成连续序列，清单写的是重排后的子图序号，时间码是真实的。
 - **淡入淡出的黑帧不再主动躲开**（0.3.1 会躲）。现在按窗口均匀重取，过渡里的黑帧是转场的一部分，躲掉反而看不到转场怎么做的。
-- **单帧不再打包**（0.5.0 起）。一帧一张图，所以长片安静段（每几秒一帧）的图数会比过去多得多，靠 `maxTotalSheets` 与 plan 的预算闸门兜住。
+- **单帧不再打包**（0.5.0 起）。一帧一张图，所以长片安静段（每几秒一帧）的图数会比过去多得多，靠 `maxTotalSheets` 与 plan 的预算检查兜住。
 - **非 Windows 默认不烧字**。默认字体是 Windows 的 `consolab.ttf`；在 Linux / macOS 上这个文件不存在，插件会检测到并**自动关掉烧字**（不报错）。要烧字就自己给 `fontFile` 一个存在的字体路径。
 - **BGM 风格判断的验证面还很窄**。只测过合成鼓点（答"电子/四拍/无旋律"）与纯旁白（答"无音乐"）；真实配乐下的准确率未验证。
 - **本地语音会写错专有名词**。实测把 "GitHub" 转成 "gitopub"；时间戳是准的，字面不保证。
@@ -375,12 +412,13 @@ BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**
 |---|---|---|
 | `index.js` | 插件入口 + re-export | 63 |
 | `lib/presets.js` | 两套预设 + `effectiveArgs`（预设与配置的合成） | 57 |
-| `lib/config.js` | 配置归一化：夹取、解析外部命令、猜字体、定缓存目录 | 190 |
-| `lib/tools.js` | 三个工具的定义（**模型读到的描述与参数在这里**） | 537 |
-| `lib/orchestrate.js` | 探测、扫描、plan 初判/定稿、watch 执行、取帧拼图交附件 | 697 |
-| `lib/feasibility.js` | 预算闸门：`required` / `minimum` / 四个候选方案 / choice 解析 | 237 |
+| `lib/config.js` | 配置归一化：夹取、解析外部命令、猜字体、定缓存与记录目录 | 205 |
+| `lib/tools.js` | 四个工具的定义（**模型读到的描述与参数在这里**） | 640 |
+| `lib/orchestrate.js` | 探测、扫描、plan 初判/定稿、watch 执行、note 落盘、取帧拼图交附件 | 780 |
+| `lib/feasibility.js` | 预算检查：`required` / `minimum` / 四个候选方案 / choice 解析 | 237 |
 | `lib/plans.js` | 计划快照：id 哈希、落盘、校验、淘汰 | 203 |
-| `lib/render.js` | 返回值 → 内容块（纯函数，不碰 IO） | 271 |
+| `lib/record.js` | 观看记录：文档头、批次追加、分析补写（Markdown） | 300 |
+| `lib/render.js` | 返回值 → 内容块（纯函数，不碰 IO） | 296 |
 | `lib/util.js` | 执行与渲染共用的小工具 | 311 |
 | `lib/plan.js` | 积分法采样计划 + `planFeasibility` / `fitDensity`（纯算法） | 735 |
 | `lib/scan.js` | raw RGB → 面积变化分 | 254 |
@@ -394,10 +432,10 @@ BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**
 ## 开发
 
 ```bash
-npm test                               # 94 项：纯函数 + 预算闸门 + 工具契约 + 渲染
+npm test                               # 100 项：纯函数 + 预算 + 工具契约 + 渲染 + 观看记录
 node scripts/smoke.mjs [视频]          # 端到端：造测试片、走 plan→watch 两段、比交付形态
 node scripts/verify-agent-contract.mjs  # 用 Agent 自己的校验器验 schema（含"预算不足"形态）
-node scripts/verify-real-output.mjs    # 真跑三个工具，拿真实返回值过校验器
+node scripts/verify-real-output.mjs    # 真跑四个工具，拿真实返回值过校验器
 ```
 
 `npm test` 不需要 ffmpeg，也不需要装进 DSH。`smoke.mjs` 与 `verify-real-output.mjs` 需要 ffmpeg；给 smoke 一个视频路径就会对那部片子再跑一遍对比。

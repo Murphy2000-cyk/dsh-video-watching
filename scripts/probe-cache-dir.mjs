@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 用 profile 里那条 cacheDir 原样跑一次，确认缓存真的写到新路径。
  *
  * 这一步模拟的是重启后服务端会做的事：拿配置里的绝对路径当缓存根。
@@ -26,7 +26,7 @@ function spawnStub(spec) {
   return { done, collected: { stdout: reader('stdout'), stderr: reader('stderr') } };
 }
 
-const cfg = resolveConfig({ cacheDir: CACHE, bgmMode: 'off', speechMode: 'off' });
+const cfg = resolveConfig({ cacheDir: CACHE, bgmMode: 'off', speechMode: 'off', record: false });
 const run = createRunner((spec) => spawnStub(spec), { graceMs: 2000, timeoutMs: 180000 });
 const ctx = { subprocess: { spawn: spawnStub }, get: () => undefined, tools: { register: () => () => {} } };
 const plan = buildTools({ ctx, run, cfg }).find((tool) => tool.name === 'video_plan');
