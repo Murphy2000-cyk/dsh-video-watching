@@ -19,7 +19,7 @@ const { assertSupportedJsonSchema, assertObjectJsonSchema, validateJsonSchemaVal
 );
 
 const { buildTools, resolveConfig } = await import('../index.js');
-const { sampleHead } = await import('../test/fixture.mjs');
+const { sampleHead, sampleAudio } = await import('../test/fixture.mjs');
 
 const cfg = resolveConfig({});
 const tools = buildTools({ ctx: {}, run: async () => ({ code: 0, stdout: '', stderr: '' }), cfg });
@@ -60,6 +60,7 @@ const samples = {
     sheets: [{ sheet: 1, cols: 4, rows: 5, width: 800, height: 450, tokens: 233, image: SAMPLE_IMAGE }],
     transcript: { source: 'demo.srt', count: 1, lines: [{ start: 0.5, text: '开场' }] },
     skipped: 0,
+    audio: sampleAudio(),
   },
   video_closeup: {
     path: 'C:/media/demo.mp4',

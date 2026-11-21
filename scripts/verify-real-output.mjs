@@ -23,7 +23,9 @@ const { validateJsonSchemaValue } = await import(pathToFileURL(DSH_TOOLS).href);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'smoke-out', '_real');
-const cfg = resolveConfig({});
+// 本机 DSH 安装里自带 sherpa-onnx-node 与 SenseVoice 的 ONNX 模型，直接借用，免装原生包。
+const DSH_SHERPA = 'C:/Users/lenovo/AppData/Roaming/npm/node_modules/@deepseek-ai/dsh/node_modules/sherpa-onnx-node';
+const cfg = resolveConfig({ sherpaPath: DSH_SHERPA });
 const FFMPEG = cfg.ffmpegPath;
 
 const failures = [];

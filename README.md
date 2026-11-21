@@ -20,7 +20,7 @@
 | 工具 | 干什么 | 视觉 token |
 |---|---|---|
 | `video_plan` | 只扫描不取图：报时长、切点数、密度地图、要几张图、大概多少钱 | **0** |
-| `video_watch` | 按计划交付拼图 + 时间码清单 + 字幕 | 每张图 384（1440p 拼图 / 1080p 单帧） |
+| `video_watch` | 按计划交付拼图 + 时间码清单 + 字幕 + 音频分析 | 每张图 384（1440p 拼图 / 1080p 单帧） |
 | `video_closeup` | 按时间码取回全分辨率单帧 | 384（原分辨率，单图封顶） |
 
 先 `video_plan` 看计划，再决定要不要 `video_watch`；图里某张子图糊得看不清，用 `video_closeup` 对着时间码取原图。
@@ -110,6 +110,15 @@
 | `ffmpegPath` / `ffprobePath` | 自动解析 | 路径 | ffmpeg 位置 |
 | `timeoutMs` / `toolTimeoutMs` / `graceMs` | 180000 / 900000 / 2000 | 毫秒 | 超时与终止宽限 |
 | `transcriptCommand` | `[]` | 数组 | 外部转写命令 |
+| `speechMode` | `auto` | auto/on/off | 本地语音识别开关 |
+| `speechModelDir` | `~/.dsh/speech-to-text/sensevoice/models/sensevoice-onnx` | 路径 | SenseVoice ONNX 模型目录 |
+| `sherpaPath` | 空 | 路径 | 借用已有的 `sherpa-onnx-node`（空则按包名找） |
+| `bgmMode` | `auto` | auto/on/off | BGM / 音效分析开关 |
+| `bgmModel` | `qwen3.8-omni-flash` | 模型名 | 云端模型 |
+| `bgmKeyEnv` | `DASHSCOPE_AUDIO_API_KEY` | 变量名 | 密钥从哪个环境变量读 |
+| `bgmChunkSeconds` | `30` | 5–120 | 片长，等于 BGM 变化点的时间精度 |
+| `bgmMaxChunks` | `24` | 1–200 | 片数上限，超了均匀抽样并标注 `sampled` |
+
 
 > 已删除的参数：`perSheet`、`sparse`（单帧不再装箱）、`gridMode`（网格完全由密度决定）、`budgetPixels`（固定分辨率档位）、`maxWidth`（closeup 取原分辨率）、以及配置里的 `a`/`t`/`maxGap`/`multiCross`/`cutPair`/`maxSheets`（改由 preset 管，避免「写了却不生效」）。
 
@@ -213,6 +222,28 @@ config:
 
 命令失败**不会瞒着**：清单里会写 `transcript: none (transcript command failed: ...)`，而不是装作"本来就没台词"。
 
+
+## 音频
+
+音频分两块，各走各的路，互不依赖：
+
+| 块 | 走哪 | 给什么 | 花钱 |
+|---|---|---|---|
+| **语音** | 本地 sherpa-onnx + SenseVoice int8（CPU，0 显存） | 逐句文本 + 词级时间戳 | 0 |
+| **BGM / 音效** | 云端 `qwen3.8-omni-flash` | 风格 / 速度 / 情绪 / 乐器 / 听感 / 检索词 | 约 ¥0.5 每小时音频 |
+
+BGM 不给时间戳，时间轴由插件切片决定；"风格有没有变"是**相邻片枚举比对**出来的，不问模型。
+
+**密钥只从环境变量读**（默认 `DASHSCOPE_AUDIO_API_KEY`），插件代码、配置、仓库里都没有密钥。
+
+**失败不糊弄**：任一块不可用就把 `audio.status` 降为 `unavailable` 或 `partial`，在 `notes` 里写原因，正文明确写 "BGM was NOT analysed"，不会让"没分析"看起来像"没有声音"。
+
+**依赖可缺**：`sherpa-onnx-node` 是原生包，不作为硬依赖。找不到就只做 BGM；也可以把 `sherpaPath` 指向机器上已有的那份。
+
+### 找相似 BGM
+
+每片分析会产出 `searchWords`（3–5 个），插件把它们去重后放进 `<bgm>` 的 `search words for a similar track:` 一行。拿这串词去素材库检索即可；插件本身不连曲库。
+
 ## 已知限制
 
 - **分析帧率决定变化率的分辨率**。0.1 秒以内的变化在 10 fps 上看不到；要更细就把 `scanFps` 提到 20–30（花的只是解码时间）。
@@ -224,6 +255,9 @@ config:
 - **`tile` 只按连续文件名读**。取帧有失败时脚本会把成功的重排成连续序列，清单写的是重排后的子图序号，时间码是真实的。
 - **淡入淡出的黑帧不再主动躲开**（0.3.1 会躲）。现在按窗口均匀重取，过渡里的黑帧是转场的一部分，躲掉反而看不到转场怎么做的。
 - **单帧不再打包**（0.5.0 起）。一帧一张图，所以长片安静段（每几秒一帧）的图数会比过去多得多，必须靠 `maxSheets` 和 `overflow` 兜住。
+- **BGM 风格判断的验证面还很窄**。只测过合成鼓点（答"电子/四拍/无旋律"）与纯旁白（答"无音乐"）；真实配乐下的准确率未验证。
+- **本地语音会写错专有名词**。实测把 "GitHub" 转成 "gitopub"；时间戳是准的，字面不保证。
+- **BGM 那一路会把音频上传到云端**。敏感素材请把 `bgmMode` 设成 `off`。
 - **分辨率档位固定**：单帧 1080p、拼图 1440p（2×2 单张子图 720p / 3×3 480p / 4×4 360p）。每张图片 384 token，比过去的 800×450（233）贵约 65%，换来 4×4 里子图 640×360 的可读性。
 
 ## 代码结构
