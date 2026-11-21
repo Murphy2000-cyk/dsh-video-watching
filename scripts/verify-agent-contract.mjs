@@ -60,6 +60,7 @@ const samples = {
     sheets: [{ sheet: 1, cols: 4, rows: 5, width: 800, height: 450, tokens: 233, image: SAMPLE_IMAGE }],
     transcript: { source: 'demo.srt', count: 1, lines: [{ start: 0.5, text: '开场' }] },
     skipped: 0,
+    batch: { index: 1, total: 3, size: 10, sheets: 28, from: 0, to: 24, next: 2, done: false },
     audio: sampleAudio(),
   },
   video_closeup: {

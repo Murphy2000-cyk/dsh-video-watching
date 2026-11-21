@@ -155,7 +155,8 @@ test('两种预设：解析更密、理解更省，显式参数压过预设', ()
   assert.equal(understand.a, 1);
   assert.equal(understand.t, 1.5);
   assert.equal(understand.maxGap, 6);
-  assert.equal(understand.maxSheets, 10);
+  assert.equal(analysis.maxSheets, 10, '解析模式每批 10 张');
+  assert.equal(understand.maxSheets, 20, '理解模式每批 20 张');
   assert.ok(understand.maxGap > analysis.maxGap, '理解模式容忍更长的间隔');
   assert.equal(analysis.cutPair, false);
   assert.equal(understand.cutPair, false);

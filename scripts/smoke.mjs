@@ -159,21 +159,22 @@ async function buildFixture() {
  * @param input - 视频路径。
  * @param label - 打印用的标签。
  */
-async function compareModes(byName, input, label) {
+async function compareModes(buildWith, input, label) {
   const cases = [
     { name: '默认 a=0.3', args: {} },
-    { name: 'maxSheets 3', args: { maxSheets: 3, maxGap: 0 } },
-    { name: 'overflow stop', args: { maxSheets: 3, maxGap: 0, overflow: 'stop' } },
+    { name: '总量 3 张', cfg: { maxTotalSheets: 3 }, args: { maxGap: 0 } },
+    { name: 'stop 截断', cfg: { maxTotalSheets: 3 }, args: { maxGap: 0, overflow: 'stop' } },
     { name: 'cutPair 开', args: { cutPair: true } },
     { name: 'multiCross 关', args: { multiCross: false } },
     { name: 'a=1.5 省 token', args: { a: 1.5 } },
   ];
   const rows = [];
   for (const item of cases) {
-    // 这一组比的是**密度**，所以把交付预算放开（40 张对一个 24 秒片等于不设限）；
-    // 预算本身的断言在主流程那一次 watch（maxSheets: 4）里验。
-    const watch = await byName.video_watch.execute(
-      { input, preset: 'analysis', maxSheets: 40, userConfirmed: true, ...item.args },
+    // 这一组比的是**密度**，所以把总量放开（40 张对一个 24 秒片等于不设限）；
+    // 总量上限是配置项，所以按用例换一套工具（模型侧改不了它）。
+    const scoped = buildWith({ maxTotalSheets: item.cfg?.maxTotalSheets ?? 40 });
+    const watch = await scoped.video_watch.execute(
+      { input, preset: 'analysis', userConfirmed: true, ...item.args },
       { signal: undefined },
     );
     rows.push({
@@ -194,7 +195,7 @@ async function compareModes(byName, input, label) {
     );
   }
   const [auto, few, stop, cut, multi, cheap] = rows;
-  check(label + '：maxSheets 收紧后图数明显减少', few.sheets < auto.sheets, auto.sheets + ' -> ' + few.sheets + ' 张');
+  check(label + '：总量上限收紧后图数明显减少', few.sheets < auto.sheets, auto.sheets + ' -> ' + few.sheets + ' 张');
   check(label + '：overflow stop 会提前结束', stop.truncated === true, 'truncated=' + stop.truncated);
   check(label + '：overflow thin 不截断', auto.truncated === false, 'truncated=' + auto.truncated);
   // cutPair 只对"单间隔硬切"生效，测试片里有 8 次硬切。
@@ -227,7 +228,11 @@ async function main() {
 
   const cfg = resolveConfig({ scanFps: 10, cacheDir: join(OUT, '_cache') });
   const run = createRunner((spec) => spawnStub(spec), { graceMs: 2000, timeoutMs: 180000 });
-  const byName = Object.fromEntries(buildTools({ ctx, run, cfg }).map((tool) => [tool.name, tool]));
+  const buildWith = (overrides) => {
+  const scopedCfg = resolveConfig({ scanFps: 10, cacheDir: join(OUT, '_cache'), ...overrides });
+  return Object.fromEntries(buildTools({ ctx, run, cfg: scopedCfg }).map((tool) => [tool.name, tool]));
+};
+const byName = buildWith({});
 
   console.log('--- video_plan：全片 ---');
   const plan = await byName.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
@@ -235,7 +240,7 @@ async function main() {
   console.log(planText);
   await writeFile(join(OUT, 'plan.txt'), planText, 'utf8');
 
-  const windowOf = (from, to) => byName.video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true, from, to, maxSheets: 8 }, { signal: undefined });
+  const windowOf = (from, to) => buildWith({ maxTotalSheets: 8 }).video_plan.execute({ input: video, preset: 'analysis', userConfirmed: true, from, to }, { signal: undefined });
   const stillPlan = await windowOf(0, 7.5);
   const cutPlan = await windowOf(16.5, 23.9);
   const stillRate = stillPlan.plan.count / 7.5;
@@ -251,7 +256,7 @@ async function main() {
   check('变化量按窗口记账', cutPlan.plan.totalChange > stillPlan.plan.totalChange, `${stillPlan.plan.totalChange} -> ${cutPlan.plan.totalChange}`);
 
   console.log('\n--- video_watch ---');
-  const watch = await byName.video_watch.execute({ input: video, preset: 'analysis', maxSheets: 4, userConfirmed: true }, { signal: undefined });
+  const watch = await buildWith({ maxTotalSheets: 4 }).video_watch.execute({ input: video, preset: 'analysis', userConfirmed: true }, { signal: undefined });
   const blocks = byName.video_watch.output.render({}, watch);
   console.log(blocks[0].text);
   await writeFile(join(OUT, 'watch.txt'), blocks[0].text, 'utf8');
@@ -318,7 +323,7 @@ async function main() {
     'utf8',
   );
   const withSubs = await byName.video_watch.execute(
-    { input: video, preset: 'analysis', maxSheets: 2, userConfirmed: true, transcriptFile: srtPath },
+    { input: video, preset: 'analysis', userConfirmed: true, transcriptFile: srtPath },
     { signal: undefined },
   );
   check('字幕被读进来', withSubs.transcript.count === 3, `${withSubs.transcript.count} 条：${withSubs.transcript.source}`);
@@ -332,12 +337,12 @@ async function main() {
   check('字幕行进了正文', /\[0:00\.500\] 开场的黑屏旁白/.test(subsText), 'ok');
 
   console.log('\n--- 交付形态对比（密段拼图 / 档位 / 疏段单帧）---');
-  await compareModes(byName, video, 'fixture');
+  await compareModes(buildWith, video, 'fixture');
 
   const extra = process.argv.slice(2).find((arg) => !arg.startsWith('-'));
   if (extra !== undefined) {
     console.log(`\n--- 外部视频： ---`);
-    await compareModes(byName, extra, 'external');
+    await compareModes(buildWith, extra, 'external');
   }
 
   const failures = results.filter((item) => !item.ok);

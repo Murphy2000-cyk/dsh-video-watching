@@ -106,13 +106,14 @@
 | `maxGap` | 5 | 6 | 超过这么多秒没取帧就强制补一帧；`0` 关闭 |
 | `multiCross` | true | true | 允许一个 0.1 秒间隔里落多个时刻 |
 | `cutPair` | false | false | 硬切取前后两帧（默认关，需要时单次传 true） |
-| `maxSheets` | 5 | 10 | **交付单元内图片张数**上限，一个拼图也只算一张图片 |
+| `maxSheets` | **10** | **20** | **每个交付单元（一批）**的图片张数上限，一个拼图也只算一张图片 |
 
 ### 配置参数（写 profile）
 
 | 参数 | 默认 | 范围 | 作用 |
 |---|---|---|---|
-| `overflow` | `thin` | `thin/stop` | 超预算时：全片变稀 / 看到上限就停（返回 `truncated` 与 `coveredTo`） |
+| `maxTotalSheets` | `100` | 1–5000 | **整片**最多交付多少张图（跨所有批次），真正的花钱上限 |
+| `overflow` | `stop` | `thin/stop` | 超过 `maxTotalSheets` 时：全片变稀 / 看到上限就停（返回 `truncated` 与 `coveredTo`） |
 | `scanFps` | `10` | 1–30 | 分析帧率，只影响变化率分辨率 |
 | `longSide` | `120` | 32–480 | 分析图长边（1080p ÷ 16） |
 | `block` / `blockThreshold` | `4` / `8` | 2–16 / 1–64 | 面积变化分的方块边长与块级阈值 |
@@ -135,6 +136,33 @@
 
 
 > 已删除的参数：`perSheet`、`sparse`（单帧不再装箱）、`gridMode`（网格完全由密度决定）、`budgetPixels`（固定分辨率档位）、`maxWidth`（closeup 取原分辨率）、以及配置里的 `a`/`t`/`maxGap`/`multiCross`/`cutPair`/`maxSheets`（改由 preset 管，避免「写了却不生效」）。
+
+## 分批交付（一个视频切成很多交付单元）
+
+长片不是一次全给你，而是**按时间顺序切成若干批**，一批一批交付，你逐批总结：
+
+```
+第 1 批：0:00 - 0:10   10 张图
+第 2 批：0:10 - 0:20   10 张图
+...
+第 7 批：1:00 - 1:05    4 张图
+```
+
+调用 `video_watch` 时**不传 `batch`** 就是第一批；返回里带一段：
+
+```
+<batch index="1" total="7" size="10" sheets="64" from="0:00" to="0:10" next="2" done="false"/>
+<next>This is batch 1 of 7. Summarise it now, then call video_watch again with batch=2 ...</next>
+```
+
+- `total` = 这个视频一共几批；`next` = 下一批的编号（0 表示已是最后一批）
+- 每批的张数由 `maxSheets` 决定（解析 10 / 理解 20）
+- 整片总量由 `maxTotalSheets` 卡（配置项，默认 100 张），超了按 `overflow` 处理
+
+**必须按顺序、在同一个会话里逐批看。** 上下文连贯靠会话本身：前面几批的返回留在对话里，
+后面的批次才能接着理解。如果分批丢给子代理或换会话，连贯性就断了。
+
+**不要一次性把所有批次都拉下来**——那样等于又回到"一次看太多"，总结质量会掉，这正是分批要避免的。
 
 ## 拼图与 token
 
